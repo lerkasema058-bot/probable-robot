@@ -30,9 +30,40 @@ const els = {
   downloadLink: document.getElementById('downloadLink'),
   canvasWrap: document.getElementById('canvasWrap'),
   dropOverlay: document.getElementById('dropOverlay'),
+  tabGen: document.getElementById('tabGen'),
+  tabModel: document.getElementById('tabModel'),
+  modelGrid: document.getElementById('modelGrid'),
+  modelBadge: document.getElementById('modelBadge'),
+  modelCurrent: document.getElementById('modelCurrent'),
 }
 
 const ctx = els.canvas.getContext('2d')
+
+// ==== Совместимость: Safari < 16 и старые браузеры не знают ctx.roundRect ====
+if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+    const radius = Math.min(typeof r === 'number' ? r : 0, Math.abs(w) / 2, Math.abs(h) / 2)
+    this.moveTo(x + radius, y)
+    this.arcTo(x + w, y, x + w, y + h, radius)
+    this.arcTo(x + w, y + h, x, y + h, radius)
+    this.arcTo(x, y + h, x, y, radius)
+    this.arcTo(x, y, x + w, y, radius)
+    this.closePath()
+    return this
+  }
+}
+
+// Любая ошибка рисования не должна «тихо убивать» кнопки — показываем её пользователю.
+function safeDraw(t) {
+  try {
+    draw(t)
+    return true
+  } catch (err) {
+    console.error(err)
+    if (els.status) els.status.textContent = 'Ошибка отрисовки: ' + err.message
+    return false
+  }
+}
 let format = '16:9'
 let bgImage = null
 let previewAnim = null
@@ -49,6 +80,66 @@ const gradients = {
   gradient2: ['#0093e9', '#80d0c7'], // ocean
   gradient3: ['#8a2be2', '#ff1493'], // neon
   gradient4: ['#0f5132', '#a3f7a3'], // forest
+}
+
+// ==== localStorage может кидать ошибку (приватный режим, iframe с opaque origin) ====
+const store = {
+  get(key) { try { return localStorage.getItem(key) } catch { return null } },
+  set(key, val) { try { localStorage.setItem(key, val) } catch {} },
+}
+
+// ==== Модели — пресеты стиля ====
+const models = [
+  { id: 'classic', name: 'Классика', icon: '◐', tag: 'Универсально', desc: 'Плавное появление и мягкие частицы', hint: 'Плавное появление + мягкие частицы', grad: ['#6366f1', '#8b5cf6'],
+    bg: 'gradient2', anim: 'fadeScale', textColor: '#ffffff', particles: true, kenBurns: false, overlay: 0 },
+  { id: 'cinema', name: 'Кино', icon: '🎬', tag: 'Кинематографично', desc: 'Глубокий фон, зерно плёнки, чёрные полосы', hint: 'Зум + зерно плёнки + letterbox', grad: ['#1a1a22', '#4a0a2a'],
+    bg: 'solid', bgColor: '#0f0a12', anim: 'zoom', textColor: '#ffe3ea', particles: false, kenBurns: true, overlay: 18, grain: true, letterbox: true },
+  { id: 'neon', name: 'Неон', icon: '⚡', tag: 'Промо', desc: 'Яркий градиент, зум и блеск', hint: 'Зум + максимум блесток', grad: ['#8a2be2', '#ff1493'],
+    bg: 'gradient3', anim: 'zoom', textColor: '#ffffff', particles: true, kenBurns: false, overlay: 0 },
+  { id: 'minimal', name: 'Минимализм', icon: '—', tag: 'Чисто', desc: 'Светлый фон, без частиц', hint: 'Без частиц, акцент на тексте', grad: ['#f8fafc', '#e2e8f0'],
+    bg: 'solid', bgColor: '#f4f5f8', anim: 'fadeScale', textColor: '#111111', particles: false, kenBurns: false, overlay: 0 },
+  { id: 'typewriter', name: 'Типографика', icon: '⌨', tag: 'Текст', desc: 'Печатает заголовок по буквам', hint: 'Печатная машинка', grad: ['#0f172a', '#334155'],
+    bg: 'solid', bgColor: '#0b1220', anim: 'typewriter', textColor: '#38bdf8', particles: false, kenBurns: false, overlay: 0 },
+  { id: 'sale', name: 'Распродажа', icon: '%', tag: 'Конверсия', desc: 'Закат, выезд снизу, движение фона', hint: 'Выезд снизу + движение фона', grad: ['#ff512f', '#dd2476'],
+    bg: 'gradient1', anim: 'slideUp', textColor: '#ffd600', particles: true, kenBurns: true, overlay: 5 },
+]
+
+let currentModelId = store.get('pr-model') || 'classic'
+if (!models.some(m => m.id === currentModelId)) currentModelId = 'classic'
+const getModel = () => models.find(m => m.id === currentModelId) || models[0]
+
+// ==== Зерно плёнки: одна шумовая плитка, дальше — pattern ====
+let grainTile = null
+function getGrainTile() {
+  if (grainTile) return grainTile
+  const size = 160
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const g = c.getContext('2d')
+  const data = g.createImageData(size, size)
+  for (let i = 0; i < data.data.length; i += 4) {
+    const v = 120 + Math.random() * 135
+    data.data[i] = data.data[i + 1] = data.data[i + 2] = v
+    data.data[i + 3] = 255
+  }
+  g.putImageData(data, 0, 0)
+  grainTile = c
+  return c
+}
+function drawGrain(t, strength = 0.12) {
+  const { w, h } = formats[format]
+  const pattern = ctx.createPattern(getGrainTile(), 'repeat')
+  if (!pattern) return
+  ctx.save()
+  ctx.globalAlpha = strength
+  ctx.globalCompositeOperation = 'overlay'
+  // сдвигаем плитку, чтобы зерно «шевелилось» от кадра к кадру
+  const ox = (t * 977) % 160
+  const oy = (t * 613) % 160
+  ctx.translate(-ox, -oy)
+  ctx.fillStyle = pattern
+  ctx.fillRect(0, 0, w + 200, h + 200)
+  ctx.restore()
 }
 
 const templates = [
@@ -72,7 +163,7 @@ function applyFormat(fmt) {
   // keep preview responsive
   els.canvas.style.width = fmt === '9:16' ? '340px' : fmt === '1:1' ? '380px' : '100%'
   els.canvas.style.maxWidth = '100%'
-  draw(0)
+  safeDraw(0)
 }
 
 function getState() {
@@ -168,6 +259,9 @@ function wrapText(text, maxWidth) {
 function draw(tProgress) {
   // tProgress 0..1
   const s = getState()
+  const model = getModel()
+  if (model.grain) s.grain = true
+  if (model.letterbox) s.letterbox = true
   const { w, h } = formats[format]
   // background
   drawBackground(s, tProgress)
@@ -270,6 +364,14 @@ function draw(tProgress) {
   ctx.globalAlpha = 1
   ctx.shadowBlur = 0
 
+  if (s.grain) drawGrain(tProgress, 0.16)
+  if (s.letterbox) {
+    const bar = Math.round(h * 0.075)
+    ctx.fillStyle = '#000'
+    ctx.fillRect(0, 0, w, bar)
+    ctx.fillRect(0, h - bar, w, bar)
+  }
+
   if (s.watermark) {
     ctx.font = `600 13px Inter, sans-serif`
     ctx.fillStyle = 'rgba(255,255,255,0.6)'
@@ -286,12 +388,12 @@ function playPreview() {
   const dur = +els.duration.value * 1000
   const loop = (now) => {
     const p = Math.min(1, (now - previewStart) / dur)
-    draw(p)
+    safeDraw(p)
     els.timelineProgress.style.width = (p*100) + '%'
     if (p < 1) previewRaf = requestAnimationFrame(loop)
     else {
       els.timelineProgress.style.width = '100%'
-      setTimeout(()=> { els.timelineProgress.style.width = '0%'; draw(0) }, 700)
+      setTimeout(()=> { els.timelineProgress.style.width = '0%'; safeDraw(0) }, 700)
     }
   }
   previewRaf = requestAnimationFrame(loop)
@@ -323,7 +425,7 @@ templates.forEach(t => {
     if (t.anim) els.anim.value = t.anim
     if (t.color) els.textColor.value = t.color
     updateBgVisibility()
-    draw(0)
+    safeDraw(0)
   }
   tplGrid.appendChild(el)
 })
@@ -336,21 +438,21 @@ function updateBgVisibility() {
 
 // events
 ['input','change'].forEach(ev => {
-  els.title.addEventListener(ev, () => draw(0))
-  els.subtitle.addEventListener(ev, () => draw(0))
+  els.title.addEventListener(ev, () => safeDraw(0))
+  els.subtitle.addEventListener(ev, () => safeDraw(0))
 })
-els.titleSize.addEventListener('input', () => { els.valTitleSize.textContent = els.titleSize.value; draw(0) })
-els.subSize.addEventListener('input', () => { els.valSubSize.textContent = els.subSize.value; draw(0) })
-els.bgType.addEventListener('change', () => { updateBgVisibility(); draw(0) })
-els.bgColor.addEventListener('input', () => draw(0))
-els.overlay.addEventListener('input', () => draw(0))
-els.anim.addEventListener('change', () => draw(0))
-els.duration.addEventListener('input', () => { els.valDuration.textContent = els.duration.value; els.timelineEnd.textContent = els.duration.value + 'с'; draw(0) })
-els.textColor.addEventListener('input', () => draw(0))
-document.querySelectorAll('.chip').forEach(c => c.onclick = () => { els.textColor.value = c.dataset.color; draw(0) })
-els.particles.addEventListener('change', () => draw(0))
-els.kenBurns.addEventListener('change', () => draw(0))
-els.watermark.addEventListener('change', () => draw(0))
+els.titleSize.addEventListener('input', () => { els.valTitleSize.textContent = els.titleSize.value; safeDraw(0) })
+els.subSize.addEventListener('input', () => { els.valSubSize.textContent = els.subSize.value; safeDraw(0) })
+els.bgType.addEventListener('change', () => { updateBgVisibility(); safeDraw(0) })
+els.bgColor.addEventListener('input', () => safeDraw(0))
+els.overlay.addEventListener('input', () => safeDraw(0))
+els.anim.addEventListener('change', () => safeDraw(0))
+els.duration.addEventListener('input', () => { els.valDuration.textContent = els.duration.value; els.timelineEnd.textContent = els.duration.value + 'с'; safeDraw(0) })
+els.textColor.addEventListener('input', () => safeDraw(0))
+document.querySelectorAll('.chip').forEach(c => c.onclick = () => { els.textColor.value = c.dataset.color; safeDraw(0) })
+els.particles.addEventListener('change', () => safeDraw(0))
+els.kenBurns.addEventListener('change', () => safeDraw(0))
+els.watermark.addEventListener('change', () => safeDraw(0))
 document.querySelectorAll('.fmt-btn').forEach(b => b.onclick = () => applyFormat(b.dataset.fmt))
 
 els.inpImage.addEventListener('change', (e) => {
@@ -361,7 +463,7 @@ els.inpImage.addEventListener('change', (e) => {
 function loadImageFile(file) {
   const url = URL.createObjectURL(file)
   const img = new Image()
-  img.onload = () => { bgImage = img; els.bgType.value = 'image'; updateBgVisibility(); draw(0); els.status.textContent = 'Картинка загружена ✓' }
+  img.onload = () => { bgImage = img; els.bgType.value = 'image'; updateBgVisibility(); safeDraw(0); els.status.textContent = 'Картинка загружена ✓' }
   img.src = url
 }
 // drag drop
@@ -376,63 +478,105 @@ els.canvasWrap.addEventListener('drop', e => {
 els.btnPlayPreview.onclick = playPreview
 
 // Generate video
+function resetGenerateBtn() {
+  els.btnGenerate.disabled = false
+  els.btnGenerate.innerHTML = '<span class="btn-icon">●</span> Сгенерировать видео'
+}
+
+function pickMime() {
+  const candidates = [
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8',
+    'video/webm',
+    'video/mp4;codecs=avc1.42E01E',
+    'video/mp4',
+  ]
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') return null
+  return candidates.find(m => {
+    try { return MediaRecorder.isTypeSupported(m) } catch { return false }
+  }) || null
+}
+
 async function generateVideo() {
   const s = getState()
   if (!s.title.trim()) { els.status.textContent = 'Введи заголовок!'; return }
 
+  // Проверяем возможности браузера ДО записи, чтобы не зависнуть в «Запись... 0%»
+  if (typeof MediaRecorder === 'undefined' || typeof els.canvas.captureStream !== 'function') {
+    els.status.textContent = 'Этот браузер не умеет записывать видео с canvas. Открой в Chrome, Edge, Firefox или Safari 15+.'
+    return
+  }
+  const mime = pickMime()
+  if (!mime) {
+    els.status.textContent = 'Браузер не поддерживает запись видео. Попробуй Chrome / Firefox / Safari.'
+    return
+  }
+
   const fps = 30
   const duration = s.duration
-  const totalFrames = duration * fps
+  const totalFrames = Math.round(duration * fps)
+  const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm'
 
   els.btnGenerate.disabled = true
-  els.btnGenerate.innerHTML = '<span class="btn-icon"></span> Запись...'
+  els.btnGenerate.innerHTML = '<span class="btn-icon">●</span> Запись...'
   els.status.textContent = 'Подготовка записи...'
   els.resultCard.style.display = 'none'
 
-  // choose mime
-  let mime = 'video/webm;codecs=vp9'
-  if (!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm;codecs=vp8'
-  if (!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm'
-  const stream = els.canvas.captureStream(fps)
-  // try to get higher bitrate
-  const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 5000000 })
-  const chunks = []
-  recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data) }
-  const done = new Promise(res => recorder.onstop = res)
-  recorder.start(100)
+  let stream = null
+  let recorder = null
+  try {
+    stream = els.canvas.captureStream(fps)
+    // Safari игнорирует битрейт в webm, но с mp4 он полезен
+    const opts = { videoBitsPerSecond: 5000000 }
+    try { recorder = new MediaRecorder(stream, { mimeType: mime, ...opts }) }
+    catch { recorder = new MediaRecorder(stream) }
 
-  const start = performance.now()
-  let frame = 0
-  function renderFrame() {
-    const t = frame / totalFrames
-    draw(t)
-    els.timelineProgress.style.width = (t*100) + '%'
-    els.status.textContent = `Запись... ${Math.round(t*100)}%`
-    frame++
-    if (frame <= totalFrames) {
-      // schedule next frame at fps
-      setTimeout(() => requestAnimationFrame(renderFrame), 1000/fps)
-    } else {
-      recorder.stop()
-    }
+    const chunks = []
+    recorder.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data) }
+    const done = new Promise((resolve, reject) => {
+      recorder.onstop = resolve
+      recorder.onerror = e => reject(e.error || new Error('Ошибка записи'))
+    })
+    recorder.start(100)
+
+    let frame = 0
+    await new Promise(resolve => {
+      function renderFrame() {
+        if (frame > totalFrames) return resolve()
+        const t = Math.min(1, frame / totalFrames)
+        safeDraw(t)
+        els.timelineProgress.style.width = (t * 100) + '%'
+        els.status.textContent = `Запись... ${Math.round(t * 100)}%`
+        frame++
+        setTimeout(() => requestAnimationFrame(renderFrame), 1000 / fps)
+      }
+      requestAnimationFrame(renderFrame)
+    })
+
+    // даём рекордеру дослать последние данные, но не ждём вечно
+    if (recorder.state !== 'inactive') recorder.stop()
+    await Promise.race([done, new Promise(r => setTimeout(r, 3000))])
+
+    if (!chunks.length) throw new Error('пустой файл — браузер не записал ни одного кадра')
+    const blob = new Blob(chunks, { type: mime.split(';')[0] })
+    const url = URL.createObjectURL(blob)
+    els.resultVideo.src = url
+    els.downloadLink.href = url
+    const safeTitle = s.title.replace(/[^a-zA-Z0-9а-яА-ЯЁё]+/g, '_').slice(0, 30) || 'video'
+    els.downloadLink.download = `${safeTitle}_${format.replace(':', '-')}.${ext}`
+    els.resultCard.style.display = 'block'
+    els.status.textContent = `Готово! ${(blob.size / 1024 / 1024).toFixed(2)} МБ • ${ext}`
+    els.timelineProgress.style.width = '0%'
+    safeDraw(0)
+    try { els.resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) } catch {}
+  } catch (err) {
+    console.error(err)
+    els.status.textContent = 'Не получилось записать видео: ' + (err && err.message ? err.message : err) +
+      '. Попробуй Chrome/Firefox или уменьши длительность.'
+  } finally {
+    try { if (stream) stream.getTracks().forEach(t => t.stop()) } catch {}
+    resetGenerateBtn()
   }
-  requestAnimationFrame(renderFrame)
-
-  await done
-  const blob = new Blob(chunks, { type: mime })
-  const url = URL.createObjectURL(blob)
-  els.resultVideo.src = url
-  els.downloadLink.href = url
-  const safeTitle = s.title.replace(/[^a-zA-Z0-9а-яА-ЯёЁ]+/g, '_').slice(0,30) || 'video'
-  els.downloadLink.download = `${safeTitle}_${format}.webm`
-  els.resultCard.style.display = 'block'
-  els.status.textContent = `Готово! Размер: ${(blob.size/1024/1024).toFixed(2)} МБ • ${mime}`
-  els.btnGenerate.disabled = false
-  els.btnGenerate.innerHTML = '<span class="btn-icon"></span> Сгенерировать видео'
-  els.timelineProgress.style.width = '0%'
-  draw(0)
-  // scroll to result on mobile
-  els.resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
 }
 
 els.btnGenerate.onclick = generateVideo
@@ -443,9 +587,71 @@ document.getElementById('btnHelp').onclick = () => document.getElementById('moda
 document.getElementById('btnExamples').onclick = () => document.querySelector('.templates').scrollIntoView({behavior:'smooth'})
 document.querySelectorAll('[data-close]').forEach(el => el.onclick = () => document.getElementById('modalHelp').style.display='none')
 
+// ==== Вкладки левой панели: Текст / Модель ====
+let activeTab = 'gen'
+function syncTabs() {
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    const on = b.dataset.tab === activeTab
+    b.classList.toggle('active', on)
+    b.setAttribute('aria-selected', on ? 'true' : 'false')
+  })
+  els.tabGen.style.display = activeTab === 'gen' ? 'block' : 'none'
+  els.tabModel.style.display = activeTab === 'model' ? 'block' : 'none'
+  if (activeTab === 'model') renderModels()
+}
+document.querySelectorAll('.tab-btn').forEach(b => {
+  b.addEventListener('click', () => { activeTab = b.dataset.tab; syncTabs() })
+})
+
+// ==== Модели ====
+function renderModels() {
+  const active = getModel()
+  els.modelGrid.innerHTML = ''
+  models.forEach(m => {
+    const card = document.createElement('button')
+    card.type = 'button'
+    card.className = 'model-card' + (m.id === currentModelId ? ' active' : '')
+    card.dataset.model = m.id
+    card.innerHTML = `
+      <div class="model-card-top" style="background:linear-gradient(135deg,${m.grad[0]},${m.grad[1]});color:${m.textColor}">
+        <div class="model-card-icon">${m.icon}</div>
+      </div>
+      <div class="model-card-body">
+        <div class="model-card-title">${m.name}</div>
+        <div class="model-card-desc">${m.desc}</div>
+        <span class="model-card-tag">${m.tag}</span>
+      </div>`
+    card.addEventListener('click', () => setModel(m.id))
+    els.modelGrid.appendChild(card)
+  })
+  els.modelBadge.textContent = active.name
+  els.modelCurrent.innerHTML = `<div class="model-current-dot"></div>
+    <div><b>${active.name}</b> — ${active.hint}</div>`
+}
+
+function setModel(id) {
+  const m = models.find(x => x.id === id)
+  if (!m) return
+  currentModelId = id
+  store.set('pr-model', id)
+  els.bgType.value = m.bg
+  if (m.bgColor) els.bgColor.value = m.bgColor
+  els.anim.value = m.anim
+  els.textColor.value = m.textColor
+  els.particles.checked = m.particles
+  els.kenBurns.checked = m.kenBurns
+  els.overlay.value = m.overlay
+  updateBgVisibility()
+  renderModels()
+  safeDraw(0)
+  els.status.textContent = `Модель «${m.name}» применена ✓`
+}
+
 // init
 updateBgVisibility()
 applyFormat('16:9')
 els.valTitleSize.textContent = els.titleSize.value
 els.valSubSize.textContent = els.subSize.value
-draw(0)
+renderModels()
+syncTabs()
+safeDraw(0)
