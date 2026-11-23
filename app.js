@@ -51,6 +51,17 @@ const gradients = {
   gradient4: ['#0f5132', '#a3f7a3'], // forest
 }
 
+// === Модели: были «скоро появится» — теперь 6 рабочих стилей ===
+const models = [
+  { id:'classic', name:'Классика', desc:'Сбалансировано для любых видео', icon:'◐', grad:['#6366f1','#8b5cf6'], anim:'fadeScale', bg:'gradient2', textColor:'#ffffff', particles:true, kenBurns:false, overlay:0, tag:'Универсально', hint:'Плавное появление + мягкие частицы' },
+  { id:'cinema', name:'Кино', desc:'Драма, глубокая виньетка', icon:'🎬', grad:['#1a1a22','#4a0a2a'], anim:'zoom', bg:'solid', bgColor:'#0f0a12', textColor:'#ffd6e0', particles:false, kenBurns:true, overlay:10, tag:'Кинематографично', hint:'Медленный зум + тёплый оттенок' },
+  { id:'neon', name:'Неон', desc:'Ярко, энергично, для акций', icon:'⚡', grad:['#8a2be2','#ff1493'], anim:'zoom', bg:'gradient3', textColor:'#ffffff', particles:true, kenBurns:false, overlay:0, tag:'Промо', hint:'Зум + максимум блесток' },
+  { id:'minimal', name:'Минимализм', desc:'Чисто, без эффектов', icon:'—', grad:['#f8fafc','#e2e8f0'], anim:'fadeScale', bg:'solid', bgColor:'#f8f9fb', textColor:'#111111', particles:false, kenBurns:false, overlay:0, tag:'Чисто', hint:'Без частиц, акцент на тексте' },
+  { id:'typewriter', name:'Типографика', desc:'Печатная машинка', icon:'⌨', grad:['#0f172a','#334155'], anim:'typewriter', bg:'solid', bgColor:'#0b1220', textColor:'#38bdf8', particles:false, kenBurns:false, overlay:0, tag:'Текст', hint:'Печатает заголовок по буквам' },
+  { id:'sale', name:'Распродажа', desc:'Для скидок и акций', icon:'%', grad:['#ff512f','#dd2476'], anim:'slideUp', bg:'gradient1', textColor:'#ffd600', particles:true, kenBurns:true, overlay:5, tag:'Конверсия', hint:'Выезд снизу + движение фона' },
+]
+let currentModelId = localStorage.getItem('pr-model') || 'classic'
+
 const templates = [
   { name: 'Скидка', title: 'СКИДКА 50%', subtitle: 'Только сегодня', bg: 'gradient1', anim: 'zoom', color: '#ffffff' },
   { name: 'Новый товар', title: 'НОВИНКА', subtitle: 'Уже в продаже', bg: 'gradient2', anim: 'slideUp', color: '#ffffff' },
@@ -95,18 +106,15 @@ function getState() {
 
 function drawBackground(s, t) {
   const { w, h } = formats[format]
-  // Ken Burns scale
   let scale = 1
-  if (s.kenBurns) scale = 1 + t * 0.06 // slowly zoom in
+  if (s.kenBurns) scale = 1 + t * 0.06
   ctx.save()
   if (scale !== 1) {
     ctx.translate(w/2, h/2)
     ctx.scale(scale, scale)
     ctx.translate(-w/2, -h/2)
   }
-
   if (s.bgType === 'image' && bgImage) {
-    // cover
     const iw = bgImage.width, ih = bgImage.height
     const ratio = Math.max(w / iw, h / ih)
     const nw = iw * ratio, nh = ih * ratio
@@ -121,7 +129,6 @@ function drawBackground(s, t) {
     g.addColorStop(1,c2)
     ctx.fillStyle = g
     ctx.fillRect(0,0,w,h)
-    // add subtle vignette
     const vg = ctx.createRadialGradient(w/2,h/2, Math.min(w,h)*0.4, w/2,h/2, Math.max(w,h)*0.9)
     vg.addColorStop(0,'rgba(0,0,0,0)')
     vg.addColorStop(1,'rgba(0,0,0,0.35)')
@@ -129,9 +136,31 @@ function drawBackground(s, t) {
     ctx.fillRect(0,0,w,h)
   }
   ctx.restore()
-
   if (s.overlay > 0) {
     ctx.fillStyle = `rgba(0,0,0,${s.overlay/100})`
+    ctx.fillRect(0,0,w,h)
+  }
+  // модель Кино — дополнительное зерно
+  const m = models.find(x=>x.id===currentModelId)
+  if (m && m.id==='cinema') {
+    ctx.fillStyle = 'rgba(255,255,255,0.04)'
+    for (let i=0;i<120;i++) {
+      const x = (Math.sin(i*12.7 + t*5)*0.5+0.5)*w
+      const y = (Math.random())*h
+      ctx.fillRect(x,y,1,1)
+    }
+    // letterbox
+    ctx.fillStyle = 'rgba(0,0,0,0.45)'
+    const bar = h*0.06
+    ctx.fillRect(0,0,w,bar)
+    ctx.fillRect(0,h-bar,w,bar)
+  }
+  if (m && m.id==='neon') {
+    // extra glow vignette
+    const ng = ctx.createRadialGradient(w/2,h/2, w*0.1, w/2,h/2, w*0.9)
+    ng.addColorStop(0,'rgba(255,20,147,0)')
+    ng.addColorStop(1,'rgba(138,43,226,0.22)')
+    ctx.fillStyle = ng
     ctx.fillRect(0,0,w,h)
   }
 }
@@ -442,6 +471,71 @@ document.getElementById('btnAgain').onclick = () => { els.resultCard.style.displ
 document.getElementById('btnHelp').onclick = () => document.getElementById('modalHelp').style.display='grid'
 document.getElementById('btnExamples').onclick = () => document.querySelector('.templates').scrollIntoView({behavior:'smooth'})
 document.querySelectorAll('[data-close]').forEach(el => el.onclick = () => document.getElementById('modalHelp').style.display='none')
+
+// === Вкладки Генератор / Модель ===
+function syncTabs() {
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===document.body.dataset.tab))
+  document.getElementById('tabGen').style.display = document.body.dataset.tab==='model' ? 'none' : 'block'
+  document.getElementById('tabModel').style.display = document.body.dataset.tab==='model' ? 'block' : 'none'
+}
+document.body.dataset.tab = 'gen'
+document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click', ()=>{
+  document.body.dataset.tab = b.dataset.tab
+  syncTabs()
+}))
+syncTabs()
+
+function renderModels(){
+  const grid = document.getElementById('modelGrid')
+  const badge = document.getElementById('modelBadge')
+  const cur = document.getElementById('modelCurrent')
+  grid.innerHTML = ''
+  models.forEach(m=>{
+    const card = document.createElement('button')
+    card.type='button'
+    card.className='model-card'+(m.id===currentModelId?' active':'')
+    card.innerHTML = `
+      <div class="model-card-top" style="background: linear-gradient(135deg, ${m.grad[0]}, ${m.grad[1]}); color:${m.textColor||'#fff'}">
+        <div style="text-align:center">
+          <div class="model-card-icon">${m.icon}</div>
+          <div class="model-card-name">${m.name}</div>
+        </div>
+      </div>
+      <div class="model-card-body">
+        <div class="model-card-title">${m.name}</div>
+        <div class="model-card-desc">${m.desc}</div>
+        <span class="model-card-tag">${m.tag}</span>
+      </div>`
+    card.onclick = ()=> setModel(m.id)
+    grid.appendChild(card)
+  })
+  const active = models.find(x=>x.id===currentModelId)
+  if(active){ badge.textContent = active.name; cur.innerHTML = `<div class="model-current-dot"></div><div><b>${active.name}</b> — ${active.hint}<br><span>Анимация: ${active.anim} • фон: ${active.bg}</span></div>` }
+}
+function setModel(id){
+  const m = models.find(x=>x.id===id)
+  if(!m) return
+  currentModelId = id
+  localStorage.setItem('pr-model', id)
+  // применить пресет к контрóлам (не трогаем заголовок пользователя)
+  els.bgType.value = m.bg
+  if(m.bgColor) els.bgColor.value = m.bgColor
+  els.anim.value = m.anim
+  els.textColor.value = m.textColor
+  els.particles.checked = m.particles
+  els.kenBurns.checked = m.kenBurns
+  els.overlay.value = m.overlay
+  updateBgVisibility()
+  renderModels()
+  draw(0)
+  els.status.textContent = `Модель «${m.name}» применена ✓`
+}
+renderModels()
+// применить сохранённую модель при старте (без перезаписи текста)
+{
+  const m = models.find(x=>x.id===currentModelId)
+  if(m){ els.bgType.value=m.bg; if(m.bgColor) els.bgColor.value=m.bgColor; els.anim.value=m.anim; els.textColor.value=m.textColor; els.particles.checked=m.particles; els.kenBurns.checked=m.kenBurns; els.overlay.value=m.overlay }
+}
 
 // init
 updateBgVisibility()

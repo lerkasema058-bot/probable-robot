@@ -28,7 +28,11 @@
     <div class="main-layout">
       <!-- Left controls -->
       <aside class="controls">
-        <div class="controls-scroll">
+        <div class="controls-tabs">
+          <button class="tab-btn active" data-tab="gen">Генератор</button>
+          <button class="tab-btn" data-tab="model">Модель <span class="tab-badge" id="modelBadge">Классика</span></button>
+        </div>
+        <div class="controls-scroll" id="tabGen">
           <div class="control-section">
             <h3>📝 Текст</h3>
             <label>Заголовок</label>
@@ -101,6 +105,22 @@
             <label><input type="checkbox" id="inpWatermark"> Водяной знак</label>
           </div>
         </div>
+
+        <!-- Вкладка МОДЕЛЬ — была пустой, теперь с моделями -->
+        <div class="controls-scroll" id="tabModel" style="display:none">
+          <div class="model-header">
+            <h3>🤖 Выбери модель</h3>
+            <p>Модель меняет стиль анимации, частицы и цветокоррекцию. Клик — применяется мгновенно.</p>
+          </div>
+          <div class="model-grid" id="modelGrid"></div>
+          <div class="model-current" id="modelCurrent"></div>
+          <div class="info-box">
+            <b>Что такое модель?</b>
+            <p>Каждая модель — это пресет стиля. «Кино» добавляет зерно и виньетку, «Неон» — яркие частицы и зум, «Минимализм» — чистый текст без эффектов.</p>
+            <p>Все модели работают <b>локально в браузере</b> — без ожидания и без оплаты.</p>
+          </div>
+        </div>
+
         <div class="controls-footer">
           <button class="btn-primary" id="btnGenerate">
             <span class="btn-icon">●</span> Сгенерировать видео
