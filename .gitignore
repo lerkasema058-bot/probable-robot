@@ -60,3 +60,6 @@ htmlcov/
 *.temp
 generated/
 videos/
+
+# Фильм — временные файлы рендера
+film/build/
