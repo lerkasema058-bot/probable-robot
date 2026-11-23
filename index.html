@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Генератор видео — probable-robot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-inner">
+        <div class="logo">
+          <div class="logo-icon">▶</div>
+          <span>probable-robot</span>
+          <span class="badge">VIDEO</span>
+        </div>
+        <div class="header-actions">
+          <button class="btn-ghost" id="btnExamples">Примеры</button>
+          <button class="btn-ghost" id="btnHelp">Как это работает?</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="main-layout">
+      <!-- Left controls -->
+      <aside class="controls">
+        <div class="controls-scroll">
+          <div class="control-section">
+            <h3>📝 Текст</h3>
+            <label>Заголовок</label>
+            <textarea id="inpTitle" rows="2" placeholder="Например: СКИДКА 50%">СКИДКА 50%</textarea>
+            <label>Подзаголовок</label>
+            <textarea id="inpSubtitle" rows="2" placeholder="Только сегодня — успей купить!">Только сегодня • До конца дня</textarea>
+            <div class="row2">
+              <div><label>Размер заголовка</label><input type="range" id="inpTitleSize" min="28" max="110" value="64"><span class="range-val" id="valTitleSize">64</span></div>
+              <div><label>Размер подзаг.</label><input type="range" id="inpSubSize" min="14" max="48" value="22"><span class="range-val" id="valSubSize">22</span></div>
+            </div>
+          </div>
+
+          <div class="control-section">
+            <h3>🎨 Фон</h3>
+            <label>Тип фона</label>
+            <select id="inpBgType">
+              <option value="gradient1">Градиент — Закат</option>
+              <option value="gradient2">Градиент — Океан</option>
+              <option value="gradient3">Градиент — Неон</option>
+              <option value="gradient4">Градиент — Лес</option>
+              <option value="solid">Сплошной цвет</option>
+              <option value="image">Картинка / Загрузка</option>
+            </select>
+            <div id="bgColorRow" style="display:none">
+              <label>Цвет фона</label>
+              <input type="color" id="inpBgColor" value="#0a0a0f">
+            </div>
+            <div id="bgImageRow" style="display:none">
+              <label>Загрузить картинку</label>
+              <input type="file" id="inpImage" accept="image/*">
+              <div class="hint">Или перетащи картинку на превью</div>
+            </div>
+            <label style="margin-top:12px">Затемнение фона</label>
+            <input type="range" id="inpOverlay" min="0" max="80" value="0">
+          </div>
+
+          <div class="control-section">
+            <h3>✨ Оформление</h3>
+            <label>Формат</label>
+            <div class="format-grid">
+              <button class="fmt-btn active" data-fmt="16:9">16:9<br><small>Горизонт</small></button>
+              <button class="fmt-btn" data-fmt="9:16">9:16<br><small>Stories</small></button>
+              <button class="fmt-btn" data-fmt="1:1">1:1<br><small>Квадрат</small></button>
+            </div>
+            <label>Анимация</label>
+            <select id="inpAnim">
+              <option value="fadeScale">Плавное появление</option>
+              <option value="typewriter">Печатная машинка</option>
+              <option value="slideUp">Выезд снизу</option>
+              <option value="zoom">Зум</option>
+              <option value="none">Без анимации</option>
+            </select>
+            <label>Длительность: <b id="valDuration">4</b> сек</label>
+            <input type="range" id="inpDuration" min="2" max="10" value="4" step="1">
+            <label>Цвет текста</label>
+            <div class="color-row">
+              <input type="color" id="inpTextColor" value="#ffffff">
+              <button class="chip" data-color="#ffffff" style="background:#fff"></button>
+              <button class="chip" data-color="#ffd600" style="background:#ffd600"></button>
+              <button class="chip" data-color="#00e5ff" style="background:#00e5ff"></button>
+              <button class="chip" data-color="#ff3b5c" style="background:#ff3b5c"></button>
+              <button class="chip" data-color="#111111" style="background:#111"></button>
+            </div>
+          </div>
+
+          <div class="control-section">
+            <h3>🎵 Дополнительно</h3>
+            <label><input type="checkbox" id="inpParticles" checked> Частицы / блестки</label>
+            <label><input type="checkbox" id="inpKenBurns"> Эффект движения фона (Ken Burns)</label>
+            <label><input type="checkbox" id="inpWatermark"> Водяной знак</label>
+          </div>
+        </div>
+        <div class="controls-footer">
+          <button class="btn-primary" id="btnGenerate">
+            <span class="btn-icon">●</span> Сгенерировать видео
+          </button>
+          <div class="hint-center">Скачается файл .webm — открывается везде</div>
+        </div>
+      </aside>
+
+      <!-- Center preview -->
+      <main class="preview-area">
+        <div class="preview-toolbar">
+          <div class="toolbar-left">
+            <span class="live-dot"></span> Превью в реальном времени
+          </div>
+          <div class="toolbar-right">
+            <button class="btn-small" id="btnPlayPreview">▶ Превью анимации</button>
+            <span class="fmt-label" id="fmtLabel">1280×720 • 16:9</span>
+          </div>
+        </div>
+        <div class="canvas-wrap" id="canvasWrap">
+          <canvas id="c"></canvas>
+          <div class="drop-overlay" id="dropOverlay">Отпусти картинку сюда</div>
+        </div>
+        <div class="timeline">
+          <div class="timeline-bar">
+            <div class="timeline-progress" id="timelineProgress"></div>
+          </div>
+          <div class="timeline-labels"><span>0с</span><span id="timelineEnd">4с</span></div>
+        </div>
+
+        <div class="result-card" id="resultCard" style="display:none">
+          <h4>✅ Видео готово!</h4>
+          <video id="resultVideo" controls playsinline></video>
+          <div class="result-actions">
+            <a id="downloadLink" class="btn-primary" download="video.webm">⬇ Скачать видео</a>
+            <button class="btn-ghost" id="btnAgain">Сгенерировать ещё</button>
+          </div>
+        </div>
+
+        <div class="status" id="status"></div>
+      </main>
+
+      <!-- Right templates -->
+      <aside class="templates">
+        <h3>Шаблоны — нажми чтобы применить</h3>
+        <div class="tpl-grid" id="tplGrid"></div>
+        <div class="info-box">
+          <b>Как это работает?</b>
+          <ol>
+            <li>Введи текст и выбери фон</li>
+            <li>Нажми «Сгенерировать видео»</li>
+            <li>Скачай готовый .webm</li>
+          </ol>
+          <p>Всё происходит <b>в браузере</b> — ничего не отправляется на сервер. Работает офлайн после загрузки.</p>
+          <p>Формат <b>webm</b> открывается в Telegram, WhatsApp, Instagram, на телефоне и компьютере. Если нужен mp4 — открой webm и сохрани через любой конвертер.</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Help modal -->
+  <div class="modal" id="modalHelp" style="display:none">
+    <div class="modal-bg" data-close></div>
+    <div class="modal-card">
+      <h2>Как генерировать видео</h2>
+      <p>Это приложение генерирует видео прямо в твоём браузере с помощью <code>Canvas</code> и <code>MediaRecorder</code>.</p>
+      <ul>
+        <li><b>Шаг 1</b> — напиши заголовок и подзаголовок слева.</li>
+        <li><b>Шаг 2</b> — выбери фон: градиент, цвет или загрузи свою картинку.</li>
+        <li><b>Шаг 3</b> — выбери формат (9:16 для сторис, 16:9 для ютуба).</li>
+        <li><b>Шаг 4</b> — нажми красную кнопку «Сгенерировать видео» и разреши запись если попросит браузер.</li>
+        <li><b>Шаг 5</b> — скачай видео и выкладывай куда хочешь.</li>
+      </ul>
+      <p>Видео записывается со скоростью 30 кадров/сек. Длительность от 2 до 10 секунд.</p>
+      <button class="btn-primary" data-close>Понятно</button>
+    </div>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
