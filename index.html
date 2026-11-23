@@ -3,42 +3,53 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Генератор видео — probable-robot</title>
+  <title>Студия видео для детей — probable-robot</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css" />
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#ff2d55">
+  <meta name="apple-mobile-web-app-capable" content="yes">
 </head>
 <body>
   <div class="app">
-    <!-- Header -->
     <header class="header">
       <div class="header-inner">
         <div class="logo">
-          <div class="logo-icon">▶</div>
+          <div class="logo-icon">🎬</div>
           <span>probable-robot</span>
-          <span class="badge">VIDEO</span>
+          <span class="badge">KIDS STUDIO</span>
+          <span class="badge badge-kids">для детей</span>
         </div>
         <div class="header-actions">
-          <button class="btn-ghost" id="btnExamples">Примеры</button>
-          <button class="btn-ghost" id="btnHelp">Как это работает?</button>
+          <button class="btn-ghost" id="btnHelp">Как монтировать?</button>
+          <button class="btn-ghost" id="btnExamples">Шаблоны</button>
         </div>
       </div>
     </header>
 
     <div class="main-layout">
-      <!-- Left controls -->
+      <!-- Левая панель -->
       <aside class="controls">
-        <div class="controls-scroll">
+        <div class="controls-tabs">
+          <button class="tab-btn active" data-tab="gen">Текст</button>
+          <button class="tab-btn" data-tab="kids">🎈 Дети</button>
+          <button class="tab-btn" data-tab="model">Модель <span class="tab-badge" id="modelBadge">Классика</span></button>
+        </div>
+
+        <!-- Вкладка Генератор -->
+        <div class="controls-scroll" id="tabGen">
           <div class="control-section">
             <h3>📝 Текст</h3>
             <label>Заголовок</label>
-            <textarea id="inpTitle" rows="2" placeholder="Например: СКИДКА 50%">СКИДКА 50%</textarea>
+            <textarea id="inpTitle" rows="2" placeholder="Например: С ДНЁМ РОЖДЕНИЯ!">С ДНЁМ РОЖДЕНИЯ!</textarea>
             <label>Подзаголовок</label>
-            <textarea id="inpSubtitle" rows="2" placeholder="Только сегодня — успей купить!">Только сегодня • До конца дня</textarea>
+            <textarea id="inpSubtitle" rows="2" placeholder="Саше 5 лет — ура!">Саше 5 лет — ура!</textarea>
             <div class="row2">
-              <div><label>Размер заголовка</label><input type="range" id="inpTitleSize" min="28" max="110" value="64"><span class="range-val" id="valTitleSize">64</span></div>
-              <div><label>Размер подзаг.</label><input type="range" id="inpSubSize" min="14" max="48" value="22"><span class="range-val" id="valSubSize">22</span></div>
+              <div><label>Размер заголовка</label><input type="range" id="inpTitleSize" min="28" max="110" value="68"><span class="range-val" id="valTitleSize">68</span></div>
+              <div><label>Размер подзаг.</label><input type="range" id="inpSubSize" min="14" max="48" value="24"><span class="range-val" id="valSubSize">24</span></div>
             </div>
+            <button class="btn-small" style="width:100%;margin-top:10px" id="btnSpeak">🔊 Озвучить текст</button>
           </div>
 
           <div class="control-section">
@@ -101,19 +112,158 @@
             <label><input type="checkbox" id="inpWatermark"> Водяной знак</label>
           </div>
         </div>
+
+        <!-- Вкладка ДЕТИ — главная фишка -->
+        <div class="controls-scroll" id="tabKids" style="display:none">
+          <div class="kids-hero">
+            <div class="kids-hero-icon">🎈</div>
+            <div>
+              <h3>Студия для детей</h3>
+              <p>Мультяшные и реалистичные герои • перетаскивай на сцену</p>
+            </div>
+          </div>
+
+          <div class="control-section">
+            <h3>🎭 Стиль видео</h3>
+            <div class="style-switch">
+              <button class="style-btn active" data-style="cartoon">
+                <span class="style-emoji">🦊</span>
+                <b>Мультяшный</b>
+                <small>Ярко, весело, для малышей</small>
+              </button>
+              <button class="style-btn" data-style="realistic">
+                <span class="style-emoji">📸</span>
+                <b>Реалистичный</b>
+                <small>Как в кино, природа и животные</small>
+              </button>
+            </div>
+            <div class="hint">Стиль меняет фоны, палитру и эффекты</div>
+          </div>
+
+          <div class="control-section">
+            <h3>🏔️ Фон для сцены <span class="hint-inline" id="kidsBgHint">выбери фон</span></h3>
+            <div class="kids-bg-grid" id="kidsBgGrid"></div>
+            <button class="btn-ghost" style="width:100%;margin-top:8px" id="btnClearBg">Убрать детский фон (вернуть обычный)</button>
+          </div>
+
+          <div class="control-section">
+            <h3>🧸 Персонажи — кликни чтобы добавить на сцену</h3>
+            <div class="kids-char-grid" id="kidsCharGrid"></div>
+            <div class="hint">На сцене: перетаскивай мышкой, меняй размер колесом</div>
+          </div>
+
+          <div class="control-section">
+            <h3>✨ Стикеры</h3>
+            <div class="kids-char-grid" id="kidsStickerGrid"></div>
+          </div>
+
+          <div class="control-section" style="background:linear-gradient(135deg,rgba(255,154,158,0.12),rgba(254,205,239,0.12));border-radius:12px;padding:12px;border:1px solid var(--border)">
+            <h3 style="margin-top:0">📸 Своё фото — ребёнок / питомец</h3>
+            <input type="file" id="inpPhoto" accept="image/*" multiple>
+            <div class="hint">Выбери фото — оно добавится на сцену кружочком. Можно несколько! Перетаскивай как героев.</div>
+            <div class="hint" style="margin-top:6px">Также можно <b>перетащить фото прямо на сцену</b></div>
+            <div id="photoThumbs" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"></div>
+          </div>
+
+          <div class="control-section">
+            <h3>🎵 Музыка</h3>
+            <select id="inpMusic">
+              <option value="none">Без музыки</option>
+              <option value="happy">Весёлая • для малышей</option>
+              <option value="tale">Сказочная • спокойная</option>
+              <option value="energy">Энергичная • для клипа</option>
+            </select>
+            <div class="row2" style="margin-top:8px">
+              <button class="btn-small" style="width:100%" id="btnPreviewMusic">▶ Послушать 5с</button>
+              <button class="btn-small" style="width:100%" id="btnStopMusic">⏹ Стоп</button>
+            </div>
+            <div class="hint">Музыка запишется ВМЕСТЕ с видео в один файл</div>
+          </div>
+
+          <div class="control-section" id="kidsSelectedSection" style="display:none">
+            <h3>🎬 На сцене <span id="kidsCount">0</span></h3>
+            <div class="selected-list" id="selectedList"></div>
+            <div class="row2">
+              <button class="btn-ghost" id="btnClearChars">Очистить всё</button>
+              <button class="btn-ghost" id="btnShuffle">Перемешать</button>
+            </div>
+          </div>
+
+          <div class="control-section" style="border:1px solid var(--border);border-radius:12px;padding:12px;background:#0f0f13">
+            <h3 style="margin-top:0">✏️ Рисовать на сцене</h3>
+            <div class="row2">
+              <button class="btn-small" id="btnDrawToggle" style="width:100%">✏️ Включить кисть</button>
+              <button class="btn-small" id="btnClearDraw" style="width:100%">🧹 Стереть рисунок</button>
+            </div>
+            <div class="row2" style="margin-top:8px">
+              <div><label>Цвет</label><input type="color" id="inpDrawColor" value="#ff2d55"></div>
+              <div><label>Толщина <b id="valDrawSize">6</b></label><input type="range" id="inpDrawSize" min="2" max="24" value="6"></div>
+            </div>
+            <div class="hint">Рисуй мышкой/пальцем прямо на превью — попадёт в видео. Стикеры теперь пульсируют и подпрыгивают!</div>
+          </div>
+
+          <div class="control-section" style="background:var(--panel2);border-radius:12px;padding:12px">
+            <h3 style="margin-top:0">💾 Черновики</h3>
+            <div class="row2">
+              <button class="btn-small" id="btnSaveDraft" style="width:100%">💾 Сохранить</button>
+              <button class="btn-small" id="btnLoadDraft" style="width:100%">📂 Открыть</button>
+            </div>
+            <div class="row2" style="margin-top:8px">
+              <button class="btn-ghost" id="btnDownloadDraft" style="width:100%;font-size:12px">⬇️ Скачать .json</button>
+              <label class="btn-ghost" style="width:100%;text-align:center;cursor:pointer;font-size:12px">📤 Загрузить <input type="file" id="inpLoadDraft" accept=".json" style="display:none"></label>
+            </div>
+            <div class="hint" id="draftHint">Автосохранение каждые 5с включено</div>
+          </div>
+
+          <div class="control-section" style="background:linear-gradient(135deg,rgba(255,214,0,0.12),rgba(0,229,255,0.12));border-radius:12px;padding:12px">
+            <h3 style="margin-top:0">📲 Установить на телефон</h3>
+            <p class="hint" style="margin-top:0">Работает офлайн — будет как приложение. В броузере нажми «Установить».</p>
+            <button class="btn-small" id="btnInstall" style="width:100%;display:none">📲 Установить приложение</button>
+            <div class="hint" id="pwaHint"></div>
+          </div>
+
+          <div class="control-section">
+            <h3>🎨 Эффекты для детей</h3>
+            <label><input type="checkbox" id="inpConfetti"> Конфетти 🎉</label>
+            <label><input type="checkbox" id="inpBubbles" checked> Пузырьки / звёздочки</label>
+            <label><input type="checkbox" id="inpSpeech"> Реплики героев 💬</label>
+            <div class="hint">Реплики — случайные фразы в облачках над героями</div>
+          </div>
+
+          <div class="control-section">
+            <h3>📚 Готовые истории</h3>
+            <div class="kids-tpl-list" id="kidsTplList"></div>
+          </div>
+        </div>
+
+        <!-- Вкладка Модель -->
+        <div class="controls-scroll" id="tabModel" style="display:none">
+          <div class="model-header">
+            <h3>🤖 Выбери модель</h3>
+            <p>Модель меняет стиль анимации, частицы и цветокоррекцию. Клик — применяется мгновенно.</p>
+          </div>
+          <div class="model-grid" id="modelGrid"></div>
+          <div class="model-current" id="modelCurrent"></div>
+          <div class="info-box">
+            <b>Что такое модель?</b>
+            <p>Каждая модель — пресет стиля. «Кино» добавляет зерно и виньетку, «Неон» — яркие частицы и зум.</p>
+          </div>
+        </div>
+
         <div class="controls-footer">
           <button class="btn-primary" id="btnGenerate">
             <span class="btn-icon">●</span> Сгенерировать видео
           </button>
-          <div class="hint-center">Скачается файл .webm — открывается везде</div>
+          <div class="hint-center">Скачается .webm — Telegram, WhatsApp, телефон</div>
         </div>
       </aside>
 
-      <!-- Center preview -->
+      <!-- Центр -->
       <main class="preview-area">
         <div class="preview-toolbar">
           <div class="toolbar-left">
-            <span class="live-dot"></span> Превью в реальном времени
+            <span class="live-dot"></span> Превью
+            <span class="toolbar-style" id="toolbarStyle">Мультяшный • Классика</span>
           </div>
           <div class="toolbar-right">
             <button class="btn-small" id="btnPlayPreview">▶ Превью анимации</button>
@@ -123,6 +273,7 @@
         <div class="canvas-wrap" id="canvasWrap">
           <canvas id="c"></canvas>
           <div class="drop-overlay" id="dropOverlay">Отпусти картинку сюда</div>
+          <div class="canvas-hint" id="canvasHint">💡 Кликни на персонажа на сцене и тащи мышкой • крути колесом — размер</div>
         </div>
         <div class="timeline">
           <div class="timeline-bar">
@@ -143,39 +294,38 @@
         <div class="status" id="status"></div>
       </main>
 
-      <!-- Right templates -->
+      <!-- Правая панель -->
       <aside class="templates">
         <h3>Шаблоны — нажми чтобы применить</h3>
         <div class="tpl-grid" id="tplGrid"></div>
         <div class="info-box">
-          <b>Как это работает?</b>
+          <b>Для детей:</b> перейди во вкладку <b>🎈 Дети</b> — там фоны, герои и 8 готовых историй (День рождения, Азбука, Сказка, Космос...).
           <ol>
-            <li>Введи текст и выбери фон</li>
-            <li>Нажми «Сгенерировать видео»</li>
-            <li>Скачай готовый .webm</li>
+            <li>Выбери стиль: мультяшный или реалистичный</li>
+            <li>Добавь фон и героев кликом</li>
+            <li>Перетащи героев на сцене</li>
+            <li>Нажми Сгенерировать</li>
           </ol>
-          <p>Всё происходит <b>в браузере</b> — ничего не отправляется на сервер. Работает офлайн после загрузки.</p>
-          <p>Формат <b>webm</b> открывается в Telegram, WhatsApp, Instagram, на телефоне и компьютере. Если нужен mp4 — открой webm и сохрани через любой конвертер.</p>
         </div>
       </aside>
     </div>
   </div>
 
-  <!-- Help modal -->
   <div class="modal" id="modalHelp" style="display:none">
     <div class="modal-bg" data-close></div>
     <div class="modal-card">
-      <h2>Как генерировать видео</h2>
-      <p>Это приложение генерирует видео прямо в твоём браузере с помощью <code>Canvas</code> и <code>MediaRecorder</code>.</p>
+      <h2>Как монтировать крутые видео для детей</h2>
+      <p><b>Мультяшные</b> — яркие фоны (небо, лес, замок, космос) + милые герои (мишка, лиса, единорог) + конфетти.</p>
+      <p><b>Реалистичные</b> — природа и животные как в жизни (саванна, лес, океан) — для познавательных видео.</p>
       <ul>
-        <li><b>Шаг 1</b> — напиши заголовок и подзаголовок слева.</li>
-        <li><b>Шаг 2</b> — выбери фон: градиент, цвет или загрузи свою картинку.</li>
-        <li><b>Шаг 3</b> — выбери формат (9:16 для сторис, 16:9 для ютуба).</li>
-        <li><b>Шаг 4</b> — нажми красную кнопку «Сгенерировать видео» и разреши запись если попросит браузер.</li>
-        <li><b>Шаг 5</b> — скачай видео и выкладывай куда хочешь.</li>
+        <li><b>1.</b> Вкладка <b>🎈 Дети</b> → выбери стиль (мультяшный/реалистичный)</li>
+        <li><b>2.</b> Выбери фон сцены → клик по герою добавит его на сцену</li>
+        <li><b>3.</b> На сцене перетаскивай мышкой, крути колесом для размера</li>
+        <li><b>4.</b> Введи текст в «Текст», выбери формат 9:16 для телефона</li>
+        <li><b>5.</b> Нажми <b>Сгенерировать видео</b> → скачай .webm</li>
       </ul>
-      <p>Видео записывается со скоростью 30 кадров/сек. Длительность от 2 до 10 секунд.</p>
-      <button class="btn-primary" data-close>Понятно</button>
+      <p>Все герои — эмодзи, рисуются на <code>Canvas</code> и попадают в видео. Видео 30 кадр/сек.</p>
+      <button class="btn-primary" data-close>Понятно, погнали!</button>
     </div>
   </div>
 
