@@ -7,6 +7,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css" />
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#ff2d55">
+  <meta name="apple-mobile-web-app-capable" content="yes">
 </head>
 <body>
   <div class="app">
@@ -184,6 +187,39 @@
               <button class="btn-ghost" id="btnClearChars">Очистить всё</button>
               <button class="btn-ghost" id="btnShuffle">Перемешать</button>
             </div>
+          </div>
+
+          <div class="control-section" style="border:1px solid var(--border);border-radius:12px;padding:12px;background:#0f0f13">
+            <h3 style="margin-top:0">✏️ Рисовать на сцене</h3>
+            <div class="row2">
+              <button class="btn-small" id="btnDrawToggle" style="width:100%">✏️ Включить кисть</button>
+              <button class="btn-small" id="btnClearDraw" style="width:100%">🧹 Стереть рисунок</button>
+            </div>
+            <div class="row2" style="margin-top:8px">
+              <div><label>Цвет</label><input type="color" id="inpDrawColor" value="#ff2d55"></div>
+              <div><label>Толщина <b id="valDrawSize">6</b></label><input type="range" id="inpDrawSize" min="2" max="24" value="6"></div>
+            </div>
+            <div class="hint">Рисуй мышкой/пальцем прямо на превью — попадёт в видео. Стикеры теперь пульсируют и подпрыгивают!</div>
+          </div>
+
+          <div class="control-section" style="background:var(--panel2);border-radius:12px;padding:12px">
+            <h3 style="margin-top:0">💾 Черновики</h3>
+            <div class="row2">
+              <button class="btn-small" id="btnSaveDraft" style="width:100%">💾 Сохранить</button>
+              <button class="btn-small" id="btnLoadDraft" style="width:100%">📂 Открыть</button>
+            </div>
+            <div class="row2" style="margin-top:8px">
+              <button class="btn-ghost" id="btnDownloadDraft" style="width:100%;font-size:12px">⬇️ Скачать .json</button>
+              <label class="btn-ghost" style="width:100%;text-align:center;cursor:pointer;font-size:12px">📤 Загрузить <input type="file" id="inpLoadDraft" accept=".json" style="display:none"></label>
+            </div>
+            <div class="hint" id="draftHint">Автосохранение каждые 5с включено</div>
+          </div>
+
+          <div class="control-section" style="background:linear-gradient(135deg,rgba(255,214,0,0.12),rgba(0,229,255,0.12));border-radius:12px;padding:12px">
+            <h3 style="margin-top:0">📲 Установить на телефон</h3>
+            <p class="hint" style="margin-top:0">Работает офлайн — будет как приложение. В броузере нажми «Установить».</p>
+            <button class="btn-small" id="btnInstall" style="width:100%;display:none">📲 Установить приложение</button>
+            <div class="hint" id="pwaHint"></div>
           </div>
 
           <div class="control-section">

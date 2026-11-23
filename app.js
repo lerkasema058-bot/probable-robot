@@ -101,35 +101,43 @@ let kidsStyle = localStorage.getItem('pr-kids-style') || 'cartoon'
 let activeKidsBgId = localStorage.getItem('pr-kids-bg') || null
 let characters = JSON.parse(localStorage.getItem('pr-chars') || '[]')
 let selectedCharId = null
+let strokes = JSON.parse(localStorage.getItem('pr-strokes')||'[]')
+let isDrawMode = false, currentStroke=null
+let drawColor = localStorage.getItem('pr-draw-color') || '#ff2d55'
+let drawSize = +(localStorage.getItem('pr-draw-size')||6)
 function reviveChars(){ characters.forEach(c=>{ if(c.isPhoto && c.imgSrc && !c._img){ const im=new Image(); im.src=c.imgSrc; c._img=im } }) }
 reviveChars()
-function saveKids(){ const toSave=characters.map(c=>{ const { _img, ...rest }=c; return rest }); localStorage.setItem('pr-kids-style', kidsStyle); localStorage.setItem('pr-kids-bg', activeKidsBgId||''); localStorage.setItem('pr-chars', JSON.stringify(toSave)) }
+function saveKids(){ const toSave=characters.map(c=>{ const { _img, ...rest }=c; return rest }); localStorage.setItem('pr-kids-style', kidsStyle); localStorage.setItem('pr-kids-bg', activeKidsBgId||''); localStorage.setItem('pr-chars', JSON.stringify(toSave)); try{ localStorage.setItem('pr-strokes', JSON.stringify(strokes)) }catch(e){} }
+function saveDraw(){ try{ localStorage.setItem('pr-strokes', JSON.stringify(strokes)) }catch(e){} }
 
-function addChar(emoji, name){
+function addChar(emoji, name, isSticker=false){
   const id = Date.now()+'_'+Math.random().toString(36).slice(2,5)
   const {w,h} = formats[format]
-  characters.push({id, emoji, name, x: w*0.5 + (Math.random()-0.5)*w*0.4, y: h*0.55 + (Math.random()-0.5)*h*0.3, size: w>900? 120: 90, rot: (Math.random()-0.5)*0.2})
+  characters.push({id, emoji, name, x: w*0.5 + (Math.random()-0.5)*w*0.4, y: h*0.55 + (Math.random()-0.5)*h*0.3, size: w>900? 120: 90, rot: (Math.random()-0.5)*0.2, isSticker})
   selectedCharId = id
   saveKids(); renderKidsSelected(); draw(0)
   els.status.textContent = `${emoji} добавлен — тащи на сцене!`
 }
 function addPhotoChar(file){
-  const url = URL.createObjectURL(file)
-  const im = new Image()
-  im.onload=()=>{
-    const id = Date.now()+'_'+Math.random().toString(36).slice(2,5)
-    const {w,h}=formats[format]
-    characters.push({id, name: file.name.slice(0,12), x:w*0.5, y:h*0.5, size: w>900? 140: 110, rot:0, isPhoto:true, imgSrc: url, _img: im, emoji: '📸'})
-    selectedCharId=id
-    saveKids(); renderKidsSelected(); draw(0)
-    els.status.textContent = `Фото добавлено ✓ Перетаскивай на сцене!`
-    // thumb preview
-    const thumbs=document.getElementById('photoThumbs')
-    if(thumbs){ const t=document.createElement('div'); t.style.cssText='width:48px;height:48px;border-radius:10px;overflow:hidden;border:2px solid var(--border);background:#0f0f13'; t.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover">`; thumbs.appendChild(t) }
+  const reader = new FileReader()
+  reader.onload = e=>{
+    const dataUrl = e.target.result
+    const im = new Image()
+    im.onload=()=>{
+      const id = Date.now()+'_'+Math.random().toString(36).slice(2,5)
+      const {w,h}=formats[format]
+      characters.push({id, name: file.name.slice(0,12), x:w*0.5, y:h*0.5, size: w>900? 140: 110, rot:0, isPhoto:true, imgSrc: dataUrl, _img: im, emoji: '📸'})
+      selectedCharId=id
+      saveKids(); renderKidsSelected(); draw(0)
+      els.status.textContent = `Фото добавлено ✓ Перетаскивай на сцене!`
+      const thumbs=document.getElementById('photoThumbs')
+      if(thumbs){ const t=document.createElement('div'); t.style.cssText='width:48px;height:48px;border-radius:10px;overflow:hidden;border:2px solid var(--border);background:#0f0f13'; t.innerHTML=`<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover">`; thumbs.appendChild(t) }
+    }
+    im.src=dataUrl
   }
-  im.src=url
+  reader.readAsDataURL(file)
 }
-function removeChar(id){ const ch=characters.find(c=>c.id===id); if(ch && ch.imgSrc) URL.revokeObjectURL(ch.imgSrc); characters = characters.filter(c=>c.id!==id); if(selectedCharId===id) selectedCharId=null; saveKids(); renderKidsSelected(); draw(0) }
+function removeChar(id){ characters = characters.filter(c=>c.id!==id); if(selectedCharId===id) selectedCharId=null; saveKids(); renderKidsSelected(); draw(0) }
 
 // ===== Музыка (генерируется Web Audio, попадает в видео) =====
 let audioCtx=null, previewOscs=[]
@@ -209,13 +217,20 @@ const templates = [
   { name: 'Лето', title: 'ЛЕТО 2025', subtitle: 'Новая коллекция', bg: 'gradient4', anim: 'slideUp', color: '#ffffff' },
 ]
 function applyFormat(fmt) {
+  const old = formats[format]
   format = fmt
   const { w, h } = formats[fmt]
+  // пересчёт координат героев и мазков при смене формата — не теряем сцену
+  if(old){
+    const sx=w/old.w, sy=h/old.h
+    characters.forEach(c=>{ c.x*=sx; c.y*=sy; c.size=Math.max(36, Math.min(220, c.size*Math.min(sx,sy))) })
+    strokes.forEach(s=> s.points.forEach(p=>{ p.x*=sx; p.y*=sy }))
+  }
   els.canvas.width = w; els.canvas.height = h
   els.fmtLabel.textContent = `${w}×${h} • ${fmt}`
   document.querySelectorAll('.fmt-btn').forEach(b => b.classList.toggle('active', b.dataset.fmt === fmt))
   els.canvas.style.width = fmt === '9:16' ? '340px' : fmt === '1:1' ? '380px' : '100%'
-  draw(0)
+  saveKids(); draw(0)
 }
 function getState() {
   return {
@@ -309,9 +324,14 @@ function drawCharacters(t){
     const bounce = Math.sin(t*3 + idx)*8
     const wiggle = Math.sin(t*4 + idx*1.2)*0.06
     const isSelected = ch.id===selectedCharId
+    // анимированные стикеры пульсируют
+    const isSticker = !!ch.isSticker
+    const pulse = isSticker ? 1 + Math.sin(t*6 + idx*1.5)*0.12 : 1
+    const extraRot = isSticker ? Math.sin(t*3+idx)*0.08 : 0
     ctx.save()
     ctx.translate(ch.x, ch.y + (s.bubbles? bounce:0))
-    ctx.rotate(ch.rot + (kidsStyle==='cartoon' ? wiggle : 0))
+    ctx.rotate(ch.rot + extraRot + (kidsStyle==='cartoon' ? wiggle : 0))
+    ctx.scale(pulse, pulse)
     // shadow
     ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(0, ch.size*0.45, ch.size*0.28, ch.size*0.1,0,0,Math.PI*2); ctx.fill()
     // photo or emoji
@@ -354,6 +374,21 @@ function drawCharacters(t){
     }
   })
 }
+function drawStrokes(){
+  strokes.forEach(s=>{
+    if(!s.points || s.points.length<2) return
+    ctx.strokeStyle=s.color; ctx.lineWidth=s.size; ctx.lineCap='round'; ctx.lineJoin='round'
+    ctx.beginPath(); ctx.moveTo(s.points[0].x, s.points[0].y)
+    for(let i=1;i<s.points.length;i++) ctx.lineTo(s.points[i].x, s.points[i].y)
+    ctx.stroke()
+  })
+  if(currentStroke && currentStroke.points.length>1){
+    ctx.strokeStyle=currentStroke.color; ctx.lineWidth=currentStroke.size; ctx.lineCap='round'; ctx.lineJoin='round'
+    ctx.beginPath(); ctx.moveTo(currentStroke.points[0].x, currentStroke.points[0].y)
+    for(let i=1;i<currentStroke.points.length;i++) ctx.lineTo(currentStroke.points[i].x, currentStroke.points[i].y)
+    ctx.stroke()
+  }
+}
 function drawConfetti(t){
   const {w,h}=formats[format]
   for(let i=0;i<30;i++){
@@ -371,11 +406,10 @@ function draw(tProgress){
   if(s.particles) particlesEffect(tProgress)
   if(s.confetti) drawConfetti(tProgress)
   if(s.bubbles && !activeKidsBgId){
-    // generic bubbles for non-kids
     for(let i=0;i<10;i++){ const x=(Math.sin(i*1.1+tProgress)*0.5+0.5)*w; const y=((i*0.2+tProgress*0.05)%1)*h; ctx.fillStyle='rgba(255,255,255,0.18)'; ctx.beginPath(); ctx.arc(x,y,6,0,Math.PI*2); ctx.fill() }
   }
-  // characters before text? draw before text so text on top? For kids text should be on top of characters but not hide. Draw characters then text.
   drawCharacters(tProgress)
+  drawStrokes()
 
   let titleAlpha=1, titleY=0, titleScale=1, subtitleAlpha=1, charCount=Infinity
   const t=tProgress
@@ -516,7 +550,7 @@ function renderKids(){
   stickers.forEach(s=>{
     const btn=document.createElement('button'); btn.className='kids-char-btn'; btn.type='button'
     btn.innerHTML=`<div class="kids-char-emoji">${s.emoji}</div><div class="kids-char-name">${s.name}</div>`
-    btn.onclick=()=> addChar(s.emoji, s.name)
+    btn.onclick=()=> addChar(s.emoji, s.name, true)
     stickerGrid.appendChild(btn)
   })
   renderKidsSelected()
@@ -566,7 +600,7 @@ kidsTemplates.forEach(t=>{
   document.getElementById('kidsTplList').appendChild(btn)
 })
 
-// drag on canvas
+// drag + рисование
 let drag=null
 function canvasPos(e){
   const rect=els.canvas.getBoundingClientRect()
@@ -576,23 +610,127 @@ function canvasPos(e){
   return {x:x*scaleX, y:y*scaleY}
 }
 function hitTest(pos){
-  // find topmost char under cursor
   for(let i=characters.length-1;i>=0;i--){ const ch=characters[i]; const dx=pos.x-ch.x, dy=pos.y-ch.y; const r=ch.size*0.38; if(dx*dx+dy*dy < r*r) return ch }
   return null
 }
 els.canvas.addEventListener('mousedown', e=>{
-  const p=canvasPos(e); const hit=hitTest(p); if(hit){ selectedCharId=hit.id; drag={id:hit.id, offX:p.x-hit.x, offY:p.y-hit.y}; draw(0); renderKidsSelected(); e.preventDefault() } else { selectedCharId=null; draw(0); renderKidsSelected() }
+  const p=canvasPos(e)
+  if(isDrawMode){
+    currentStroke={ color: drawColor, size: drawSize, points:[p] }
+    els.canvas.style.cursor='crosshair'
+    e.preventDefault(); return
+  }
+  const hit=hitTest(p); if(hit){ selectedCharId=hit.id; drag={id:hit.id, offX:p.x-hit.x, offY:p.y-hit.y}; draw(0); renderKidsSelected(); e.preventDefault() } else { selectedCharId=null; draw(0); renderKidsSelected() }
 })
 els.canvas.addEventListener('mousemove', e=>{
-  if(!drag) return; const p=canvasPos(e); const ch=characters.find(c=>c.id===drag.id); if(ch){ ch.x=p.x-drag.offX; ch.y=p.y-drag.offY; saveKids(); draw(0); renderKidsSelected() }
+  const p=canvasPos(e)
+  if(currentStroke){ currentStroke.points.push(p); draw(0); return }
+  if(!drag) return; const ch=characters.find(c=>c.id===drag.id); if(ch){ ch.x=p.x-drag.offX; ch.y=p.y-drag.offY; saveKids(); draw(0); renderKidsSelected() }
 })
-window.addEventListener('mouseup', ()=> drag=null)
-els.canvas.addEventListener('touchstart', e=>{ const p=canvasPos(e); const hit=hitTest(p); if(hit){ selectedCharId=hit.id; drag={id:hit.id, offX:p.x-hit.x, offY:p.y-hit.y}; draw(0); renderKidsSelected(); e.preventDefault() }}, {passive:false})
-els.canvas.addEventListener('touchmove', e=>{ if(!drag) return; const p=canvasPos(e); const ch=characters.find(c=>c.id===drag.id); if(ch){ ch.x=p.x-drag.offX; ch.y=p.y-drag.offY; draw(0); renderKidsSelected() } e.preventDefault() }, {passive:false})
-window.addEventListener('touchend', ()=> { if(drag) saveKids(); drag=null })
+window.addEventListener('mouseup', ()=>{
+  if(currentStroke){ strokes.push(currentStroke); currentStroke=null; saveDraw(); draw(0) }
+  if(drag) saveKids()
+  drag=null
+})
+els.canvas.addEventListener('touchstart', e=>{
+  const p=canvasPos(e)
+  if(isDrawMode){ currentStroke={ color: drawColor, size: drawSize, points:[p] }; e.preventDefault(); return }
+  const hit=hitTest(p); if(hit){ selectedCharId=hit.id; drag={id:hit.id, offX:p.x-hit.x, offY:p.y-hit.y}; draw(0); renderKidsSelected(); e.preventDefault() }
+}, {passive:false})
+els.canvas.addEventListener('touchmove', e=>{
+  const p=canvasPos(e)
+  if(currentStroke){ currentStroke.points.push(p); draw(0); e.preventDefault(); return }
+  if(!drag) return; const ch=characters.find(c=>c.id===drag.id); if(ch){ ch.x=p.x-drag.offX; ch.y=p.y-drag.offY; draw(0); renderKidsSelected() } e.preventDefault()
+}, {passive:false})
+window.addEventListener('touchend', ()=> { if(currentStroke){ strokes.push(currentStroke); currentStroke=null; saveDraw(); draw(0) } if(drag) saveKids(); drag=null })
 els.canvas.addEventListener('wheel', e=>{
   if(!selectedCharId) return; const ch=characters.find(c=>c.id===selectedCharId); if(!ch) return; e.preventDefault(); ch.size=Math.max(40, Math.min(220, ch.size + (e.deltaY<0? 8:-8))); saveKids(); draw(0); renderKidsSelected()
 }, {passive:false})
+
+// ===== Рисование, черновики, PWA =====
+const btnDrawToggle=document.getElementById('btnDrawToggle')
+const btnClearDraw=document.getElementById('btnClearDraw')
+const inpDrawColor=document.getElementById('inpDrawColor')
+const inpDrawSize=document.getElementById('inpDrawSize')
+const valDrawSize=document.getElementById('valDrawSize')
+if(inpDrawColor){ inpDrawColor.value=drawColor; inpDrawColor.addEventListener('input', e=>{ drawColor=e.target.value; localStorage.setItem('pr-draw-color', drawColor) }) }
+if(inpDrawSize){ inpDrawSize.value=drawSize; valDrawSize.textContent=drawSize; inpDrawSize.addEventListener('input', e=>{ drawSize=+e.target.value; valDrawSize.textContent=drawSize; localStorage.setItem('pr-draw-size', drawSize) }) }
+if(btnDrawToggle){
+  const upd=()=>{
+    btnDrawToggle.textContent = isDrawMode ? '✅ Кисть включена — рисуй!' : '✏️ Включить кисть'
+    btnDrawToggle.style.background = isDrawMode ? 'var(--accent)' : '#0f0f13'
+    btnDrawToggle.style.color = isDrawMode ? '#fff' : 'var(--text)'
+    els.canvas.style.cursor = isDrawMode ? 'crosshair' : 'default'
+    document.getElementById('canvasHint').textContent = isDrawMode ? '✏️ Рисуй мышкой/пальцем — отпусти чтобы сохранить штрих' : '💡 Включи кисть чтобы рисовать • стикеры теперь пульсируют'
+  }
+  btnDrawToggle.onclick=()=>{ isDrawMode=!isDrawMode; upd(); els.status.textContent=isDrawMode? 'Кисть включена — рисуй на сцене!' : 'Кисть выключена' }
+  upd()
+}
+if(btnClearDraw) btnClearDraw.onclick=()=>{ strokes=[]; currentStroke=null; saveDraw(); draw(0); els.status.textContent='Рисунок очищен' }
+
+// черновики
+function collectProject(){
+  return {
+    v:2, title: els.title.value, subtitle: els.subtitle.value,
+    titleSize:+els.titleSize.value, subSize:+els.subSize.value,
+    bgType: els.bgType.value, bgColor: els.bgColor.value, overlay:+els.overlay.value,
+    anim: els.anim.value, duration:+els.duration.value, textColor: els.textColor.value,
+    particles: els.particles.checked, kenBurns: els.kenBurns.checked, watermark: els.watermark.checked,
+    kidsStyle, activeKidsBgId, characters: characters.map(c=>{const{_img,...r}=c; return r}), strokes,
+    music: els.inpMusic?.value||'none', format, modelId: currentModelId
+  }
+}
+function applyProject(p){
+  try{
+    els.title.value=p.title||''; els.subtitle.value=p.subtitle||''
+    els.titleSize.value=p.titleSize||68; els.subSize.value=p.subSize||24
+    els.bgType.value=p.bgType||'gradient1'; els.bgColor.value=p.bgColor||'#0a0a0f'; els.overlay.value=p.overlay||0
+    els.anim.value=p.anim||'fadeScale'; els.duration.value=p.duration||4; els.textColor.value=p.textColor||'#ffffff'
+    if(els.particles) els.particles.checked=!!p.particles
+    if(els.kenBurns) els.kenBurns.checked=!!p.kenBurns
+    if(els.watermark) els.watermark.checked=!!p.watermark
+    kidsStyle=p.kidsStyle||'cartoon'; activeKidsBgId=p.activeKidsBgId||null
+    characters = Array.isArray(p.characters)? p.characters: []
+    strokes = Array.isArray(p.strokes)? p.strokes: []
+    reviveChars()
+    if(p.music && els.inpMusic) els.inpMusic.value=p.music
+    if(p.format) format=p.format
+    if(p.modelId) currentModelId=p.modelId
+    renderKids(); renderModels(); updateBgVisibility(); applyFormat(format)
+    els.valTitleSize.textContent=els.titleSize.value; els.valSubSize.textContent=els.subSize.value
+    els.valDuration.textContent=els.duration.value; els.timelineEnd.textContent=els.duration.value+'с'
+    // draw colors
+    if(p.drawColor) drawColor=p.drawColor
+    draw(0)
+    els.status.textContent='Черновик загружен ✓'
+  }catch(e){ els.status.textContent='Ошибка загрузки: '+e.message }
+}
+document.getElementById('btnSaveDraft')?.addEventListener('click',()=>{
+  const pr=collectProject(); localStorage.setItem('pr-draft', JSON.stringify(pr)); localStorage.setItem('pr-draft-time', new Date().toISOString())
+  document.getElementById('draftHint').textContent='Сохранено '+new Date().toLocaleTimeString(); els.status.textContent='Черновик сохранён ✓'
+})
+document.getElementById('btnLoadDraft')?.addEventListener('click',()=>{
+  const raw=localStorage.getItem('pr-draft'); if(!raw){ els.status.textContent='Нет сохранённого черновика'; return }
+  applyProject(JSON.parse(raw))
+})
+document.getElementById('btnDownloadDraft')?.addEventListener('click',()=>{
+  const blob=new Blob([JSON.stringify(collectProject(),null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='kids-project.json'; a.click()
+})
+document.getElementById('inpLoadDraft')?.addEventListener('change', e=>{
+  const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=ev=> applyProject(JSON.parse(ev.target.result)); r.readAsText(f)
+})
+// автосохранение каждые 5с
+setInterval(()=>{ try{ localStorage.setItem('pr-draft', JSON.stringify(collectProject())) }catch{} },5000)
+if(localStorage.getItem('pr-draft')) document.getElementById('draftHint').textContent='Есть сохранённый черновик — нажми Открыть'
+
+// PWA
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(()=>{}) }
+let deferredPrompt=null
+window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); deferredPrompt=e; const b=document.getElementById('btnInstall'); if(b) b.style.display='block' })
+document.getElementById('btnInstall')?.addEventListener('click', async()=>{
+  if(!deferredPrompt){ document.getElementById('pwaHint').textContent='Открой в Chrome на телефоне и выбери «Установить»'; return }
+  deferredPrompt.prompt(); const r=await deferredPrompt.userChoice; document.getElementById('pwaHint').textContent= r.outcome==='accepted'? 'Устанавливаю...' : 'Отменено'; deferredPrompt=null
+})
 
 async function generateVideo(){
   const s=getState(); if(!s.title.trim()){ els.status.textContent='Введи заголовок!'; return }
