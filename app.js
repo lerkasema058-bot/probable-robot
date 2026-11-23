@@ -30,6 +30,8 @@ const els = {
   downloadLink: document.getElementById('downloadLink'),
   canvasWrap: document.getElementById('canvasWrap'),
   toolbarStyle: document.getElementById('toolbarStyle'),
+  inpMusic: document.getElementById('inpMusic'),
+  inpPhoto: document.getElementById('inpPhoto'),
 }
 const ctx = els.canvas.getContext('2d')
 let format = '16:9'
@@ -99,8 +101,9 @@ let kidsStyle = localStorage.getItem('pr-kids-style') || 'cartoon'
 let activeKidsBgId = localStorage.getItem('pr-kids-bg') || null
 let characters = JSON.parse(localStorage.getItem('pr-chars') || '[]')
 let selectedCharId = null
-
-function saveKids(){ localStorage.setItem('pr-kids-style', kidsStyle); localStorage.setItem('pr-kids-bg', activeKidsBgId||''); localStorage.setItem('pr-chars', JSON.stringify(characters)) }
+function reviveChars(){ characters.forEach(c=>{ if(c.isPhoto && c.imgSrc && !c._img){ const im=new Image(); im.src=c.imgSrc; c._img=im } }) }
+reviveChars()
+function saveKids(){ const toSave=characters.map(c=>{ const { _img, ...rest }=c; return rest }); localStorage.setItem('pr-kids-style', kidsStyle); localStorage.setItem('pr-kids-bg', activeKidsBgId||''); localStorage.setItem('pr-chars', JSON.stringify(toSave)) }
 
 function addChar(emoji, name){
   const id = Date.now()+'_'+Math.random().toString(36).slice(2,5)
@@ -110,7 +113,90 @@ function addChar(emoji, name){
   saveKids(); renderKidsSelected(); draw(0)
   els.status.textContent = `${emoji} добавлен — тащи на сцене!`
 }
-function removeChar(id){ characters = characters.filter(c=>c.id!==id); if(selectedCharId===id) selectedCharId=null; saveKids(); renderKidsSelected(); draw(0) }
+function addPhotoChar(file){
+  const url = URL.createObjectURL(file)
+  const im = new Image()
+  im.onload=()=>{
+    const id = Date.now()+'_'+Math.random().toString(36).slice(2,5)
+    const {w,h}=formats[format]
+    characters.push({id, name: file.name.slice(0,12), x:w*0.5, y:h*0.5, size: w>900? 140: 110, rot:0, isPhoto:true, imgSrc: url, _img: im, emoji: '📸'})
+    selectedCharId=id
+    saveKids(); renderKidsSelected(); draw(0)
+    els.status.textContent = `Фото добавлено ✓ Перетаскивай на сцене!`
+    // thumb preview
+    const thumbs=document.getElementById('photoThumbs')
+    if(thumbs){ const t=document.createElement('div'); t.style.cssText='width:48px;height:48px;border-radius:10px;overflow:hidden;border:2px solid var(--border);background:#0f0f13'; t.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover">`; thumbs.appendChild(t) }
+  }
+  im.src=url
+}
+function removeChar(id){ const ch=characters.find(c=>c.id===id); if(ch && ch.imgSrc) URL.revokeObjectURL(ch.imgSrc); characters = characters.filter(c=>c.id!==id); if(selectedCharId===id) selectedCharId=null; saveKids(); renderKidsSelected(); draw(0) }
+
+// ===== Музыка (генерируется Web Audio, попадает в видео) =====
+let audioCtx=null, previewOscs=[]
+function ensureAudio(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); return audioCtx }
+function makeMusicStream(type, durationSec){
+  const ac=ensureAudio()
+  const dest=ac.createMediaStreamDestination()
+  const now=ac.currentTime
+  const tempo = type==='energy'? 140 : type==='tale'? 78 : 108
+  const beat=60/tempo
+  const scales = {
+    happy: [0,2,4,5,7,9,11,12],
+    tale: [0,2,4,7,9,12,14],
+    energy: [0,3,5,7,10,12]
+  }
+  const baseNotes = { happy: 48, tale: 48, energy: 36 }
+  function playNote(semi, t, dur, gain=0.22, oscType='sine'){
+    const o=ac.createOscillator(); o.type=oscType
+    const g=ac.createGain()
+    o.frequency.value=440*Math.pow(2,(baseNotes[type]+semi-69)/12)
+    g.gain.setValueAtTime(0, t)
+    g.gain.linearRampToValueAtTime(gain, t+0.03)
+    g.gain.exponentialRampToValueAtTime(0.001, t+dur*0.95)
+    o.connect(g); g.connect(dest)
+    // также к колонкам чтобы слышать при генерации? нет, только в стрим — предпросмотр отдельно
+    o.start(t); o.stop(t+dur)
+  }
+  // simple melody + bass
+  for(let b=0; b< durationSec/beat; b++){
+    const t = now + b*beat
+    const scale=scales[type]
+    const idx = Math.floor(Math.random()*scale.length) % scale.length
+    const semi = scale[idx] + (b%8===0?12:0)
+    if(type==='energy' && b%2===0){
+      playNote(0, t, beat*0.9, 0.3, 'square')
+      playNote(semi, t, beat*0.8, 0.18, 'sine')
+    } else if(type==='tale'){
+      playNote(semi, t, beat*1.8, 0.16, 'triangle')
+      if(b%4===0) playNote(semi-12, t, beat*3.2, 0.1, 'sine')
+    } else {
+      playNote(semi, t, beat*0.95, 0.2, 'sine')
+      if(b%2===0) playNote(semi-12, t, beat*0.9, 0.08, 'triangle')
+    }
+  }
+  // легкий шум-бочка для энергии
+  if(type==='energy'){
+    for(let b=0;b<durationSec/beat;b+=2){
+      const t=now+b*beat
+      const n=ac.createBufferSource(); const buf=ac.createBuffer(1, ac.sampleRate*0.12, ac.sampleRate); const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(ac.sampleRate*0.04)); n.buffer=buf
+      const g=ac.createGain(); g.gain.value=0.35; g.gain.exponentialRampToValueAtTime(0.001, t+0.25); n.connect(g); g.connect(dest); n.start(t)
+    }
+  }
+  return dest.stream
+}
+let previewNodes=[]
+function previewMusic(type){
+  stopPreviewMusic()
+  const ac=ensureAudio()
+  const now=ac.currentTime
+  const dest=ac.destination // слышим
+  function n(semi,t,dur,gain,typeOsc){
+    const o=ac.createOscillator(); o.type=typeOsc; const g=ac.createGain(); o.frequency.value=440*Math.pow(2,(48+semi-69)/12); g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(gain,t+0.03); g.gain.linearRampToValueAtTime(0,t+dur); o.connect(g); g.connect(dest); o.start(t); o.stop(t+dur); previewNodes.push(o)
+  }
+  for(let i=0;i<10;i++){ n([0,2,4,7,9][i%5], now+i*0.4, 0.6, 0.18, type==='energy'?'square':'sine') }
+  setTimeout(stopPreviewMusic,5000)
+}
+function stopPreviewMusic(){ previewNodes.forEach(o=>{ try{o.stop()}catch{}}); previewNodes=[] }
 
 const templates = [
   { name: 'Скидка', title: 'СКИДКА 50%', subtitle: 'Только сегодня', bg: 'gradient1', anim: 'zoom', color: '#ffffff' },
@@ -228,15 +314,24 @@ function drawCharacters(t){
     ctx.rotate(ch.rot + (kidsStyle==='cartoon' ? wiggle : 0))
     // shadow
     ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(0, ch.size*0.45, ch.size*0.28, ch.size*0.1,0,0,Math.PI*2); ctx.fill()
-    // emoji
-    ctx.font = `${ch.size}px Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif`
-    ctx.textAlign='center'; ctx.textBaseline='middle'
-    // cartoon outline
-    if(kidsStyle==='cartoon'){
-      ctx.shadowColor='rgba(0,0,0,0.3)'; ctx.shadowBlur=12; ctx.shadowOffsetY=4
+    // photo or emoji
+    if(ch.isPhoto && ch._img && ch._img.complete){
+      const r=ch.size*0.5
+      ctx.save()
+      ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.clip()
+      // cover
+      const iw=ch._img.width, ih=ch._img.height; const ratio=Math.max(r*2/iw, r*2/ih); const nw=iw*ratio, nh=ih*ratio
+      ctx.drawImage(ch._img, -nw/2, -nh/2, nw, nh)
+      ctx.restore()
+      ctx.strokeStyle='white'; ctx.lineWidth=6; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.stroke()
+      ctx.strokeStyle='var(--accent)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,0,r+2,0,Math.PI*2); ctx.stroke()
+    } else {
+      ctx.font = `${ch.size}px Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif`
+      ctx.textAlign='center'; ctx.textBaseline='middle'
+      if(kidsStyle==='cartoon'){ ctx.shadowColor='rgba(0,0,0,0.3)'; ctx.shadowBlur=12; ctx.shadowOffsetY=4 }
+      ctx.fillText(ch.emoji || '❓', 0, 0)
+      ctx.shadowBlur=0
     }
-    ctx.fillText(ch.emoji, 0, 0)
-    ctx.shadowBlur=0
     // selection ring
     if(isSelected){
       ctx.strokeStyle='#ff2d55'; ctx.lineWidth=4; ctx.setLineDash([8,6]); ctx.beginPath(); ctx.ellipse(0,0,ch.size*0.42,ch.size*0.42,0,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([])
@@ -361,7 +456,28 @@ els.inpImage.addEventListener('change',e=>{ const file=e.target.files[0]; if(!fi
 function loadImageFile(file){ const url=URL.createObjectURL(file); const img=new Image(); img.onload=()=>{ bgImage=img; els.bgType.value='image'; updateBgVisibility(); draw(0); els.status.textContent='Картинка загружена ✓' }; img.src=url }
 els.canvasWrap.addEventListener('dragover',e=>{ e.preventDefault(); els.canvasWrap.classList.add('drag') })
 els.canvasWrap.addEventListener('dragleave',()=>els.canvasWrap.classList.remove('drag'))
-els.canvasWrap.addEventListener('drop',e=>{ e.preventDefault(); els.canvasWrap.classList.remove('drag'); const file=e.dataTransfer.files[0]; if(file && file.type.startsWith('image/')) loadImageFile(file) })
+els.canvasWrap.addEventListener('drop',e=>{
+  e.preventDefault(); els.canvasWrap.classList.remove('drag')
+  const files=[...e.dataTransfer.files].filter(f=>f.type.startsWith('image/'))
+  if(!files.length) return
+  // если вкладка Дети активна — добавляем как фото-персонажей
+  if(document.body.dataset.tab==='kids'){
+    files.forEach(f=> addPhotoChar(f))
+  } else {
+    loadImageFile(files[0])
+  }
+})
+// фото-персонажи
+els.inpPhoto?.addEventListener('change', e=>{
+  const files=[...e.target.files]; if(!files.length) return
+  files.forEach(f=>{ if(f.type.startsWith('image/')) addPhotoChar(f) })
+  e.target.value=''
+})
+document.getElementById('btnPreviewMusic')?.addEventListener('click', ()=>{
+  const type=els.inpMusic.value; if(type==='none'){ els.status.textContent='Выбери музыку сначала'; return }
+  previewMusic(type); els.status.textContent='▶ Слушай 5 сек...'; setTimeout(()=> els.status.textContent='Готово', 5200)
+})
+document.getElementById('btnStopMusic')?.addEventListener('click', ()=>{ stopPreviewMusic(); els.status.textContent='Остановлено' })
 els.btnPlayPreview.onclick=playPreview
 
 // text-to-speech
@@ -420,7 +536,8 @@ function renderKidsSelected(){
   sec.style.display='block'; count.textContent=characters.length; list.innerHTML=''
   characters.forEach(ch=>{
     const row=document.createElement('div'); row.className='selected-item'
-    row.innerHTML=`<div class="selected-item-emoji">${ch.emoji}</div><div class="selected-item-info"><div class="selected-item-title">${ch.name}</div><div class="selected-item-sub">x:${Math.round(ch.x)} y:${Math.round(ch.y)} • ${ch.size}px</div></div>`
+    const avatar = ch.isPhoto ? `<img src="${ch.imgSrc}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid var(--border)">` : ch.emoji
+    row.innerHTML=`<div class="selected-item-emoji" style="display:grid;place-items:center">${avatar}</div><div class="selected-item-info"><div class="selected-item-title">${ch.name}</div><div class="selected-item-sub">x:${Math.round(ch.x)} y:${Math.round(ch.y)} • ${ch.size}px</div></div>`
     const actions=document.createElement('div'); actions.className='selected-item-actions'
     const inc=document.createElement('button'); inc.className='icon-btn'; inc.textContent='+'; inc.title='Увеличить'; inc.onclick=()=>{ ch.size=Math.min(200,ch.size+12); saveKids(); renderKidsSelected(); draw(0)}
     const dec=document.createElement('button'); dec.className='icon-btn'; dec.textContent='−'; dec.title='Уменьшить'; dec.onclick=()=>{ ch.size=Math.max(40,ch.size-12); saveKids(); renderKidsSelected(); draw(0)}
@@ -482,12 +599,21 @@ async function generateVideo(){
   const fps=30, duration=s.duration, totalFrames=duration*fps
   els.btnGenerate.disabled=true; els.btnGenerate.innerHTML='<span class="btn-icon"></span> Запись...'; els.status.textContent='Подготовка записи...'; els.resultCard.style.display='none'
   let mime='video/webm;codecs=vp9'; if(!MediaRecorder.isTypeSupported(mime)) mime='video/webm;codecs=vp8'; if(!MediaRecorder.isTypeSupported(mime)) mime='video/webm'
-  const stream=els.canvas.captureStream(fps); const recorder=new MediaRecorder(stream,{mimeType:mime, videoBitsPerSecond:5000000}); const chunks=[]; recorder.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data) }; const done=new Promise(res=> recorder.onstop=res); recorder.start(100)
+  const canvasStream=els.canvas.captureStream(fps)
+  // музыка в видео
+  let musicStream=null, combinedStream=canvasStream
+  const musicType=els.inpMusic?.value
+  if(musicType && musicType!=='none'){
+    try{ musicStream=makeMusicStream(musicType, duration); const vt=canvasStream.getVideoTracks()[0]; const at=musicStream.getAudioTracks()[0]; combinedStream=new MediaStream([vt, at]) }catch(e){ console.warn('music fail',e) }
+  }
+  const recorder=new MediaRecorder(combinedStream,{mimeType:mime, videoBitsPerSecond:5000000}); const chunks=[]; recorder.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data) }; const done=new Promise(res=> recorder.onstop=res); recorder.start(100)
   let frame=0; function renderFrame(){ const t=frame/totalFrames; draw(t); els.timelineProgress.style.width=(t*100)+'%'; els.status.textContent=`Запись... ${Math.round(t*100)}%`; frame++; if(frame<=totalFrames){ setTimeout(()=> requestAnimationFrame(renderFrame),1000/fps) } else recorder.stop() }
   requestAnimationFrame(renderFrame); await done
+  // stop music
+  if(musicStream) musicStream.getTracks().forEach(t=>t.stop())
   const blob=new Blob(chunks,{type:mime}); const url=URL.createObjectURL(blob); els.resultVideo.src=url; els.downloadLink.href=url
   const safeTitle=s.title.replace(/[^a-zA-Z0-9а-яА-ЯёЁ]+/g,'_').slice(0,30)||'video'; els.downloadLink.download=`${safeTitle}_${format}.webm`
-  els.resultCard.style.display='block'; els.status.textContent=`Готово! ${(blob.size/1024/1024).toFixed(2)} МБ • ${mime}`; els.btnGenerate.disabled=false; els.btnGenerate.innerHTML='<span class="btn-icon"></span> Сгенерировать видео'; els.timelineProgress.style.width='0%'; draw(0); els.resultCard.scrollIntoView({behavior:'smooth',block:'nearest'})
+  els.resultCard.style.display='block'; els.status.textContent=`Готово! ${(blob.size/1024/1024).toFixed(2)} МБ • ${mime}${musicType!=='none'?' • с музыкой 🎵':''}`; els.btnGenerate.disabled=false; els.btnGenerate.innerHTML='<span class="btn-icon"></span> Сгенерировать видео'; els.timelineProgress.style.width='0%'; draw(0); els.resultCard.scrollIntoView({behavior:'smooth',block:'nearest'})
 }
 els.btnGenerate.onclick=generateVideo
 document.getElementById('btnAgain').onclick=()=>{ els.resultCard.style.display='none'; els.status.textContent='' }

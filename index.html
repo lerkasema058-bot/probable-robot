@@ -154,6 +154,29 @@
             <div class="kids-char-grid" id="kidsStickerGrid"></div>
           </div>
 
+          <div class="control-section" style="background:linear-gradient(135deg,rgba(255,154,158,0.12),rgba(254,205,239,0.12));border-radius:12px;padding:12px;border:1px solid var(--border)">
+            <h3 style="margin-top:0">📸 Своё фото — ребёнок / питомец</h3>
+            <input type="file" id="inpPhoto" accept="image/*" multiple>
+            <div class="hint">Выбери фото — оно добавится на сцену кружочком. Можно несколько! Перетаскивай как героев.</div>
+            <div class="hint" style="margin-top:6px">Также можно <b>перетащить фото прямо на сцену</b></div>
+            <div id="photoThumbs" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"></div>
+          </div>
+
+          <div class="control-section">
+            <h3>🎵 Музыка</h3>
+            <select id="inpMusic">
+              <option value="none">Без музыки</option>
+              <option value="happy">Весёлая • для малышей</option>
+              <option value="tale">Сказочная • спокойная</option>
+              <option value="energy">Энергичная • для клипа</option>
+            </select>
+            <div class="row2" style="margin-top:8px">
+              <button class="btn-small" style="width:100%" id="btnPreviewMusic">▶ Послушать 5с</button>
+              <button class="btn-small" style="width:100%" id="btnStopMusic">⏹ Стоп</button>
+            </div>
+            <div class="hint">Музыка запишется ВМЕСТЕ с видео в один файл</div>
+          </div>
+
           <div class="control-section" id="kidsSelectedSection" style="display:none">
             <h3>🎬 На сцене <span id="kidsCount">0</span></h3>
             <div class="selected-list" id="selectedList"></div>
