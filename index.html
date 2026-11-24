@@ -5,10 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Студия видео для детей — probable-robot</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css" />
-  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <link rel="stylesheet" href="./style.css" />
+  <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#ff2d55">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
 </head>
 <body>
@@ -16,45 +19,57 @@
     <header class="header">
       <div class="header-inner">
         <div class="logo">
-          <div class="logo-icon">🎬</div>
+          <div class="logo-icon" aria-hidden="true">🎬</div>
           <span>probable-robot</span>
           <span class="badge">KIDS STUDIO</span>
           <span class="badge badge-kids">для детей</span>
         </div>
         <div class="header-actions">
-          <button class="btn-ghost" id="btnHelp">Как монтировать?</button>
-          <button class="btn-ghost" id="btnExamples">Шаблоны</button>
+          <button type="button" class="btn-ghost" id="btnHelp">Как монтировать?</button>
+          <button type="button" class="btn-ghost" id="btnExamples">Шаблоны</button>
         </div>
       </div>
     </header>
 
     <div class="main-layout">
       <!-- Левая панель -->
-      <aside class="controls">
-        <div class="controls-tabs">
-          <button class="tab-btn active" data-tab="gen">Текст</button>
-          <button class="tab-btn" data-tab="kids">🎈 Дети</button>
-          <button class="tab-btn" data-tab="model">Модель <span class="tab-badge" id="modelBadge">Классика</span></button>
+      <aside class="controls" aria-label="Панель управления">
+        <div class="controls-tabs" role="tablist" aria-label="Режимы студии">
+          <button type="button" class="tab-btn active" role="tab" data-tab="gen">Текст</button>
+          <button type="button" class="tab-btn" role="tab" data-tab="kids">🎈 Дети</button>
+          <button type="button" class="tab-btn" role="tab" data-tab="model">Модель <span class="tab-badge" id="modelBadge">Классика</span></button>
         </div>
 
         <!-- Вкладка Генератор -->
         <div class="controls-scroll" id="tabGen">
           <div class="control-section">
             <h3>📝 Текст</h3>
-            <label>Заголовок</label>
+            <label for="inpTitle">Заголовок</label>
             <textarea id="inpTitle" rows="2" placeholder="Например: С ДНЁМ РОЖДЕНИЯ!">С ДНЁМ РОЖДЕНИЯ!</textarea>
-            <label>Подзаголовок</label>
+            <label for="inpSubtitle">Подзаголовок</label>
             <textarea id="inpSubtitle" rows="2" placeholder="Саше 5 лет — ура!">Саше 5 лет — ура!</textarea>
             <div class="row2">
-              <div><label>Размер заголовка</label><input type="range" id="inpTitleSize" min="28" max="110" value="68"><span class="range-val" id="valTitleSize">68</span></div>
-              <div><label>Размер подзаг.</label><input type="range" id="inpSubSize" min="14" max="48" value="24"><span class="range-val" id="valSubSize">24</span></div>
+              <div>
+                <label for="inpTitleSize">Размер заголовка</label>
+                <input type="range" id="inpTitleSize" min="28" max="110" value="68">
+                <span class="range-val" id="valTitleSize">68</span>
+              </div>
+              <div>
+                <label for="inpSubSize">Размер подзаг.</label>
+                <input type="range" id="inpSubSize" min="14" max="48" value="24">
+                <span class="range-val" id="valSubSize">24</span>
+              </div>
             </div>
-            <button class="btn-small" style="width:100%;margin-top:10px" id="btnSpeak">🔊 Озвучить текст</button>
+            <button type="button" class="btn-small" style="width:100%;margin-top:10px" id="btnSpeak">🔊 Озвучить текст</button>
           </div>
 
           <div class="control-section">
             <h3>🎨 Фон</h3>
-            <label>Тип фона</label>
+            <div class="active-kids-bg-banner" id="activeKidsBgBanner" style="display:none">
+              <span>Активен детский фон.</span>
+              <button type="button" class="btn-link" id="btnSwitchToNormalBg">Сбросить</button>
+            </div>
+            <label for="inpBgType">Тип фона</label>
             <select id="inpBgType">
               <option value="gradient1">Градиент — Закат</option>
               <option value="gradient2">Градиент — Океан</option>
@@ -64,27 +79,27 @@
               <option value="image">Картинка / Загрузка</option>
             </select>
             <div id="bgColorRow" style="display:none">
-              <label>Цвет фона</label>
+              <label for="inpBgColor">Цвет фона</label>
               <input type="color" id="inpBgColor" value="#0a0a0f">
             </div>
             <div id="bgImageRow" style="display:none">
-              <label>Загрузить картинку</label>
+              <label for="inpImage">Загрузить картинку</label>
               <input type="file" id="inpImage" accept="image/*">
               <div class="hint">Или перетащи картинку на превью</div>
             </div>
-            <label style="margin-top:12px">Затемнение фона</label>
+            <label for="inpOverlay" style="margin-top:12px">Затемнение фона</label>
             <input type="range" id="inpOverlay" min="0" max="80" value="0">
           </div>
 
           <div class="control-section">
             <h3>✨ Оформление</h3>
-            <label>Формат</label>
-            <div class="format-grid">
-              <button class="fmt-btn active" data-fmt="16:9">16:9<br><small>Горизонт</small></button>
-              <button class="fmt-btn" data-fmt="9:16">9:16<br><small>Stories</small></button>
-              <button class="fmt-btn" data-fmt="1:1">1:1<br><small>Квадрат</small></button>
+            <span class="field-label">Формат</span>
+            <div class="format-grid" role="group" aria-label="Формат кадра">
+              <button type="button" class="fmt-btn active" data-fmt="16:9">16:9<br><small>Горизонт</small></button>
+              <button type="button" class="fmt-btn" data-fmt="9:16">9:16<br><small>Stories</small></button>
+              <button type="button" class="fmt-btn" data-fmt="1:1">1:1<br><small>Квадрат</small></button>
             </div>
-            <label>Анимация</label>
+            <label for="inpAnim">Анимация</label>
             <select id="inpAnim">
               <option value="fadeScale">Плавное появление</option>
               <option value="typewriter">Печатная машинка</option>
@@ -92,31 +107,31 @@
               <option value="zoom">Зум</option>
               <option value="none">Без анимации</option>
             </select>
-            <label>Длительность: <b id="valDuration">4</b> сек</label>
+            <label for="inpDuration">Длительность: <b id="valDuration">4</b> сек</label>
             <input type="range" id="inpDuration" min="2" max="10" value="4" step="1">
-            <label>Цвет текста</label>
+            <label for="inpTextColor">Цвет текста</label>
             <div class="color-row">
               <input type="color" id="inpTextColor" value="#ffffff">
-              <button class="chip" data-color="#ffffff" style="background:#fff"></button>
-              <button class="chip" data-color="#ffd600" style="background:#ffd600"></button>
-              <button class="chip" data-color="#00e5ff" style="background:#00e5ff"></button>
-              <button class="chip" data-color="#ff3b5c" style="background:#ff3b5c"></button>
-              <button class="chip" data-color="#111111" style="background:#111"></button>
+              <button type="button" class="chip" data-color="#ffffff" aria-label="Белый цвет текста" style="background:#fff"></button>
+              <button type="button" class="chip" data-color="#ffd600" aria-label="Жёлтый цвет текста" style="background:#ffd600"></button>
+              <button type="button" class="chip" data-color="#00e5ff" aria-label="Голубой цвет текста" style="background:#00e5ff"></button>
+              <button type="button" class="chip" data-color="#ff3b5c" aria-label="Розовый цвет текста" style="background:#ff3b5c"></button>
+              <button type="button" class="chip" data-color="#111111" aria-label="Чёрный цвет текста" style="background:#111"></button>
             </div>
           </div>
 
           <div class="control-section">
             <h3>🎵 Дополнительно</h3>
-            <label><input type="checkbox" id="inpParticles" checked> Частицы / блестки</label>
-            <label><input type="checkbox" id="inpKenBurns"> Эффект движения фона (Ken Burns)</label>
-            <label><input type="checkbox" id="inpWatermark"> Водяной знак</label>
+            <label for="inpParticles"><input type="checkbox" id="inpParticles" checked> Частицы / блестки</label>
+            <label for="inpKenBurns"><input type="checkbox" id="inpKenBurns"> Эффект движения фона (Ken Burns)</label>
+            <label for="inpWatermark"><input type="checkbox" id="inpWatermark"> Водяной знак</label>
           </div>
         </div>
 
         <!-- Вкладка ДЕТИ — главная фишка -->
         <div class="controls-scroll" id="tabKids" style="display:none">
           <div class="kids-hero">
-            <div class="kids-hero-icon">🎈</div>
+            <div class="kids-hero-icon" aria-hidden="true">🎈</div>
             <div>
               <h3>Студия для детей</h3>
               <p>Мультяшные и реалистичные герои • перетаскивай на сцену</p>
@@ -125,14 +140,14 @@
 
           <div class="control-section">
             <h3>🎭 Стиль видео</h3>
-            <div class="style-switch">
-              <button class="style-btn active" data-style="cartoon">
-                <span class="style-emoji">🦊</span>
+            <div class="style-switch" role="group" aria-label="Стиль видео">
+              <button type="button" class="style-btn active" data-style="cartoon">
+                <span class="style-emoji" aria-hidden="true">🦊</span>
                 <b>Мультяшный</b>
                 <small>Ярко, весело, для малышей</small>
               </button>
-              <button class="style-btn" data-style="realistic">
-                <span class="style-emoji">📸</span>
+              <button type="button" class="style-btn" data-style="realistic">
+                <span class="style-emoji" aria-hidden="true">📸</span>
                 <b>Реалистичный</b>
                 <small>Как в кино, природа и животные</small>
               </button>
@@ -143,13 +158,13 @@
           <div class="control-section">
             <h3>🏔️ Фон для сцены <span class="hint-inline" id="kidsBgHint">выбери фон</span></h3>
             <div class="kids-bg-grid" id="kidsBgGrid"></div>
-            <button class="btn-ghost" style="width:100%;margin-top:8px" id="btnClearBg">Убрать детский фон (вернуть обычный)</button>
+            <button type="button" class="btn-ghost" style="width:100%;margin-top:8px" id="btnClearBg">Убрать детский фон (вернуть обычный)</button>
           </div>
 
           <div class="control-section">
             <h3>🧸 Персонажи — кликни чтобы добавить на сцену</h3>
             <div class="kids-char-grid" id="kidsCharGrid"></div>
-            <div class="hint">На сцене: перетаскивай мышкой, меняй размер колесом</div>
+            <div class="hint">На сцене: перетаскивай мышкой, меняй размер колесом, двигай стрелками или удаляй клавишей Delete</div>
           </div>
 
           <div class="control-section">
@@ -159,14 +174,16 @@
 
           <div class="control-section" style="background:linear-gradient(135deg,rgba(255,154,158,0.12),rgba(254,205,239,0.12));border-radius:12px;padding:12px;border:1px solid var(--border)">
             <h3 style="margin-top:0">📸 Своё фото — ребёнок / питомец</h3>
+            <label for="inpPhoto" class="sr-only">Загрузить фотографии персонажей</label>
             <input type="file" id="inpPhoto" accept="image/*" multiple>
-            <div class="hint">Выбери фото — оно добавится на сцену кружочком. Можно несколько! Перетаскивай как героев.</div>
+            <div class="hint">Выбери фото — оно сожмётся без потери чёткости и добавится на сцену кружочком. Можно несколько!</div>
             <div class="hint" style="margin-top:6px">Также можно <b>перетащить фото прямо на сцену</b></div>
             <div id="photoThumbs" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"></div>
           </div>
 
           <div class="control-section">
             <h3>🎵 Музыка</h3>
+            <label for="inpMusic" class="sr-only">Выбор музыки</label>
             <select id="inpMusic">
               <option value="none">Без музыки</option>
               <option value="happy">Весёлая • для малышей</option>
@@ -174,8 +191,8 @@
               <option value="energy">Энергичная • для клипа</option>
             </select>
             <div class="row2" style="margin-top:8px">
-              <button class="btn-small" style="width:100%" id="btnPreviewMusic">▶ Послушать 5с</button>
-              <button class="btn-small" style="width:100%" id="btnStopMusic">⏹ Стоп</button>
+              <button type="button" class="btn-small" style="width:100%" id="btnPreviewMusic">▶ Послушать 5с</button>
+              <button type="button" class="btn-small" style="width:100%" id="btnStopMusic">⏹ Стоп</button>
             </div>
             <div class="hint">Музыка запишется ВМЕСТЕ с видео в один файл</div>
           </div>
@@ -184,49 +201,58 @@
             <h3>🎬 На сцене <span id="kidsCount">0</span></h3>
             <div class="selected-list" id="selectedList"></div>
             <div class="row2">
-              <button class="btn-ghost" id="btnClearChars">Очистить всё</button>
-              <button class="btn-ghost" id="btnShuffle">Перемешать</button>
+              <button type="button" class="btn-ghost" id="btnClearChars">Очистить всё</button>
+              <button type="button" class="btn-ghost" id="btnShuffle">Перемешать</button>
             </div>
           </div>
 
           <div class="control-section" style="border:1px solid var(--border);border-radius:12px;padding:12px;background:#0f0f13">
             <h3 style="margin-top:0">✏️ Рисовать на сцене</h3>
             <div class="row2">
-              <button class="btn-small" id="btnDrawToggle" style="width:100%">✏️ Включить кисть</button>
-              <button class="btn-small" id="btnClearDraw" style="width:100%">🧹 Стереть рисунок</button>
+              <button type="button" class="btn-small" id="btnDrawToggle" style="width:100%">✏️ Включить кисть</button>
+              <button type="button" class="btn-small" id="btnClearDraw" style="width:100%">🧹 Стереть рисунок</button>
             </div>
             <div class="row2" style="margin-top:8px">
-              <div><label>Цвет</label><input type="color" id="inpDrawColor" value="#ff2d55"></div>
-              <div><label>Толщина <b id="valDrawSize">6</b></label><input type="range" id="inpDrawSize" min="2" max="24" value="6"></div>
+              <div>
+                <label for="inpDrawColor">Цвет</label>
+                <input type="color" id="inpDrawColor" value="#ff2d55">
+              </div>
+              <div>
+                <label for="inpDrawSize">Толщина <b id="valDrawSize">6</b></label>
+                <input type="range" id="inpDrawSize" min="2" max="24" value="6">
+              </div>
             </div>
-            <div class="hint">Рисуй мышкой/пальцем прямо на превью — попадёт в видео. Стикеры теперь пульсируют и подпрыгивают!</div>
+            <div class="hint">Рисуй мышкой/пальцем прямо на превью — попадёт в видео. Стикеры пульсируют и подпрыгивают!</div>
           </div>
 
           <div class="control-section" style="background:var(--panel2);border-radius:12px;padding:12px">
             <h3 style="margin-top:0">💾 Черновики</h3>
             <div class="row2">
-              <button class="btn-small" id="btnSaveDraft" style="width:100%">💾 Сохранить</button>
-              <button class="btn-small" id="btnLoadDraft" style="width:100%">📂 Открыть</button>
+              <button type="button" class="btn-small" id="btnSaveDraft" style="width:100%">💾 Сохранить</button>
+              <button type="button" class="btn-small" id="btnLoadDraft" style="width:100%">📂 Открыть</button>
             </div>
             <div class="row2" style="margin-top:8px">
-              <button class="btn-ghost" id="btnDownloadDraft" style="width:100%;font-size:12px">⬇️ Скачать .json</button>
-              <label class="btn-ghost" style="width:100%;text-align:center;cursor:pointer;font-size:12px">📤 Загрузить <input type="file" id="inpLoadDraft" accept=".json" style="display:none"></label>
+              <button type="button" class="btn-ghost" id="btnDownloadDraft" style="width:100%;font-size:12px">⬇️ Скачать .json</button>
+              <label for="inpLoadDraft" class="btn-ghost" style="width:100%;text-align:center;cursor:pointer;font-size:12px;margin:0">
+                📤 Загрузить
+                <input type="file" id="inpLoadDraft" accept=".json,application/json" style="display:none">
+              </label>
             </div>
-            <div class="hint" id="draftHint">Автосохранение каждые 5с включено</div>
+            <div class="hint" id="draftHint">Автосохранение при изменениях включено</div>
           </div>
 
           <div class="control-section" style="background:linear-gradient(135deg,rgba(255,214,0,0.12),rgba(0,229,255,0.12));border-radius:12px;padding:12px">
             <h3 style="margin-top:0">📲 Установить на телефон</h3>
-            <p class="hint" style="margin-top:0">Работает офлайн — будет как приложение. В броузере нажми «Установить».</p>
-            <button class="btn-small" id="btnInstall" style="width:100%;display:none">📲 Установить приложение</button>
+            <p class="hint" style="margin-top:0">Работает офлайн — будет как приложение. В браузере нажми «Установить».</p>
+            <button type="button" class="btn-small" id="btnInstall" style="width:100%;display:none">📲 Установить приложение</button>
             <div class="hint" id="pwaHint"></div>
           </div>
 
           <div class="control-section">
             <h3>🎨 Эффекты для детей</h3>
-            <label><input type="checkbox" id="inpConfetti"> Конфетти 🎉</label>
-            <label><input type="checkbox" id="inpBubbles" checked> Пузырьки / звёздочки</label>
-            <label><input type="checkbox" id="inpSpeech"> Реплики героев 💬</label>
+            <label for="inpConfetti"><input type="checkbox" id="inpConfetti"> Конфетти 🎉</label>
+            <label for="inpBubbles"><input type="checkbox" id="inpBubbles" checked> Пузырьки / звёздочки</label>
+            <label for="inpSpeech"><input type="checkbox" id="inpSpeech"> Реплики героев 💬</label>
             <div class="hint">Реплики — случайные фразы в облачках над героями</div>
           </div>
 
@@ -251,10 +277,10 @@
         </div>
 
         <div class="controls-footer">
-          <button class="btn-primary" id="btnGenerate">
-            <span class="btn-icon">●</span> Сгенерировать видео
+          <button type="button" class="btn-primary" id="btnGenerate">
+            <span class="btn-icon" aria-hidden="true">●</span> Сгенерировать видео
           </button>
-          <div class="hint-center">Скачается .webm — Telegram, WhatsApp, телефон</div>
+          <div class="hint-center">Скачается готовый видеофайл (.webm / .mp4) — Telegram, WhatsApp, телефон</div>
         </div>
       </aside>
 
@@ -262,20 +288,20 @@
       <main class="preview-area">
         <div class="preview-toolbar">
           <div class="toolbar-left">
-            <span class="live-dot"></span> Превью
+            <span class="live-dot" aria-hidden="true"></span> Превью
             <span class="toolbar-style" id="toolbarStyle">Мультяшный • Классика</span>
           </div>
           <div class="toolbar-right">
-            <button class="btn-small" id="btnPlayPreview">▶ Превью анимации</button>
+            <button type="button" class="btn-small" id="btnPlayPreview">▶ Превью анимации</button>
             <span class="fmt-label" id="fmtLabel">1280×720 • 16:9</span>
           </div>
         </div>
         <div class="canvas-wrap" id="canvasWrap">
-          <canvas id="c"></canvas>
+          <canvas id="c" tabindex="0" aria-label="Сцена видеопревью"></canvas>
           <div class="drop-overlay" id="dropOverlay">Отпусти картинку сюда</div>
-          <div class="canvas-hint" id="canvasHint">💡 Кликни на персонажа на сцене и тащи мышкой • крути колесом — размер</div>
+          <div class="canvas-hint" id="canvasHint">💡 Кликни на персонажа и тащи мышкой • колесо — размер • стрелки / Delete</div>
         </div>
-        <div class="timeline">
+        <div class="timeline" aria-hidden="true">
           <div class="timeline-bar">
             <div class="timeline-progress" id="timelineProgress"></div>
           </div>
@@ -287,15 +313,15 @@
           <video id="resultVideo" controls playsinline></video>
           <div class="result-actions">
             <a id="downloadLink" class="btn-primary" download="video.webm">⬇ Скачать видео</a>
-            <button class="btn-ghost" id="btnAgain">Сгенерировать ещё</button>
+            <button type="button" class="btn-ghost" id="btnAgain">Сгенерировать ещё</button>
           </div>
         </div>
 
-        <div class="status" id="status"></div>
+        <div class="status" id="status" role="status" aria-live="polite"></div>
       </main>
 
       <!-- Правая панель -->
-      <aside class="templates">
+      <aside class="templates" id="templatesPanel" aria-label="Готовые шаблоны">
         <h3>Шаблоны — нажми чтобы применить</h3>
         <div class="tpl-grid" id="tplGrid"></div>
         <div class="info-box">
@@ -311,24 +337,38 @@
     </div>
   </div>
 
-  <div class="modal" id="modalHelp" style="display:none">
-    <div class="modal-bg" data-close></div>
+  <!-- Модальное окно справки -->
+  <div class="modal" id="modalHelp" role="dialog" aria-modal="true" aria-labelledby="modalHelpTitle" style="display:none">
+    <div class="modal-bg" data-close="modalHelp"></div>
     <div class="modal-card">
-      <h2>Как монтировать крутые видео для детей</h2>
+      <h2 id="modalHelpTitle">Как монтировать крутые видео для детей</h2>
       <p><b>Мультяшные</b> — яркие фоны (небо, лес, замок, космос) + милые герои (мишка, лиса, единорог) + конфетти.</p>
       <p><b>Реалистичные</b> — природа и животные как в жизни (саванна, лес, океан) — для познавательных видео.</p>
       <ul>
         <li><b>1.</b> Вкладка <b>🎈 Дети</b> → выбери стиль (мультяшный/реалистичный)</li>
         <li><b>2.</b> Выбери фон сцены → клик по герою добавит его на сцену</li>
-        <li><b>3.</b> На сцене перетаскивай мышкой, крути колесом для размера</li>
+        <li><b>3.</b> На сцене перетаскивай мышкой, крути колесом для размера или двигай стрелками</li>
         <li><b>4.</b> Введи текст в «Текст», выбери формат 9:16 для телефона</li>
-        <li><b>5.</b> Нажми <b>Сгенерировать видео</b> → скачай .webm</li>
+        <li><b>5.</b> Нажми <b>Сгенерировать видео</b> → скачай ролик</li>
       </ul>
-      <p>Все герои — эмодзи, рисуются на <code>Canvas</code> и попадают в видео. Видео 30 кадр/сек.</p>
-      <button class="btn-primary" data-close>Понятно, погнали!</button>
+      <p>Все герои рисуются на <code>Canvas</code> и попадают в видео вместе с музыкой и рисунком кистью.</p>
+      <button type="button" class="btn-primary" data-close="modalHelp">Понятно, погнали!</button>
     </div>
   </div>
 
-  <script type="module" src="/app.js"></script>
+  <!-- Модальное окно шаблонов (для мобильных и планшетов) -->
+  <div class="modal" id="modalTemplates" role="dialog" aria-modal="true" aria-labelledby="modalTemplatesTitle" style="display:none">
+    <div class="modal-bg" data-close="modalTemplates"></div>
+    <div class="modal-card">
+      <h2 id="modalTemplatesTitle">Выбери готовый шаблон</h2>
+      <p class="hint" style="margin-bottom:12px">Кликни на карточку, чтобы мгновенно применить оформление и текст:</p>
+      <div class="tpl-grid" id="modalTplGrid"></div>
+      <h3 style="margin:18px 0 10px;font-size:14px">🎈 Детские истории</h3>
+      <div class="kids-tpl-list" id="modalKidsTplList"></div>
+      <button type="button" class="btn-ghost" style="width:100%;margin-top:16px" data-close="modalTemplates">Закрыть</button>
+    </div>
+  </div>
+
+  <script type="module" src="./app.js"></script>
 </body>
 </html>
