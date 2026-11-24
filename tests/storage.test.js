@@ -109,4 +109,15 @@ describe('storage & draft validation', () => {
     ])
     expect(out).toEqual([{ id: '1', name: 'Мишка', nx: 0.5, ny: 0.5 }])
   })
+
+  it('rejects oversized image data URLs to avoid memory DoS on draft import', () => {
+    const huge = 'data:image/png;base64,' + 'A'.repeat(2_500_001)
+    const clean = validateProject({
+      bgImageSrc: huge,
+      characters: [{ id: 'p1', isPhoto: true, imgSrc: huge, emoji: '📸', name: 'Фото' }],
+    })
+    expect(clean.bgImageSrc).toBeNull()
+    expect(clean.characters[0].isPhoto).toBe(false)
+    expect(clean.characters[0].imgSrc).toBeUndefined()
+  })
 })

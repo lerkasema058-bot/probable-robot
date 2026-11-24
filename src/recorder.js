@@ -75,10 +75,32 @@ export async function recordCanvasVideo({
     if (e.data && e.data.size > 0) chunks.push(e.data)
   }
 
+  let stopResolve
+  let stopReject
   const stopPromise = new Promise((resolve, reject) => {
-    recorder.onstop = () => resolve()
-    recorder.onerror = (ev) => reject(ev?.error || new Error('Ошибка во время записи видео'))
+    stopResolve = resolve
+    stopReject = reject
   })
+  recorder.onstop = () => stopResolve()
+  recorder.onerror = (ev) => stopReject(ev?.error || new Error('Ошибка во время записи видео'))
+
+  let stopTimeoutId = null
+  const stopWithTimeout = async () => {
+    if (recorder.state === 'inactive') return
+    const timeoutPromise = new Promise((_, reject) => {
+      stopTimeoutId = setTimeout(() => reject(new Error('Таймаут остановки записи видео')), 5000)
+    })
+    try {
+      recorder.stop()
+    } catch (err) {
+      stopReject(err)
+    }
+    try {
+      await Promise.race([stopPromise, timeoutPromise])
+    } finally {
+      if (stopTimeoutId) clearTimeout(stopTimeoutId)
+    }
+  }
 
   try {
     // Render initial frame prior to start
@@ -88,27 +110,36 @@ export async function recordCanvasVideo({
     const durationMs = durationSec * 1000
     const startTime = performance.now()
 
-    await new Promise((resolve) => {
+    await new Promise((resolve, reject) => {
       function tick(now) {
-        const elapsed = now - startTime
-        const progress = Math.min(1, elapsed / durationMs)
-        drawFrame(progress)
-        if (onProgress) onProgress(progress)
+        try {
+          const elapsed = now - startTime
+          const progress = Math.min(1, elapsed / durationMs)
+          drawFrame(progress)
+          if (onProgress) onProgress(progress)
 
-        if (elapsed < durationMs) {
-          requestAnimationFrame(tick)
-        } else {
-          resolve()
+          if (elapsed < durationMs) {
+            requestAnimationFrame(tick)
+          } else {
+            resolve()
+          }
+        } catch (err) {
+          reject(err)
         }
       }
       requestAnimationFrame(tick)
     })
 
-    if (recorder.state !== 'inactive') {
-      recorder.stop()
+    await stopWithTimeout()
+  } catch (err) {
+    try {
+      await stopWithTimeout()
+    } catch {
+      // Ignore secondary stop errors; original error is more useful.
     }
-    await stopPromise
+    throw err
   } finally {
+    if (stopTimeoutId) clearTimeout(stopTimeoutId)
     if (musicStream) {
       musicStream.getTracks().forEach((t) => t.stop())
     }

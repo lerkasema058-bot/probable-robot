@@ -79,6 +79,7 @@ const savedFormat = safeGetItem(STORAGE_KEYS.format, '16:9')
 let format = formats[savedFormat] ? savedFormat : '16:9'
 let bgImage = null
 let bgImageSrc = null
+let bgImageLoadToken = 0
 let lastVideoObjectUrl = null
 let isRecording = false
 let previewRaf = null
@@ -499,6 +500,7 @@ function renderTemplateLists() {
 async function loadImageFile(file) {
   try {
     const { dataUrl, img } = await downscaleImageFile(file, 1440, 0.86)
+    bgImageLoadToken++
     bgImage = img
     bgImageSrc = dataUrl
     els.bgType.value = 'image'
@@ -835,14 +837,25 @@ function applyProject(rawProject) {
     selectedCharId = null
 
     if (p.bgImageSrc) {
+      bgImage = null
       bgImageSrc = p.bgImageSrc
+      const loadToken = ++bgImageLoadToken
       const im = new Image()
       im.onload = () => {
+        if (loadToken !== bgImageLoadToken) return
         bgImage = im
         draw(0)
       }
+      im.onerror = () => {
+        if (loadToken !== bgImageLoadToken) return
+        bgImage = null
+        bgImageSrc = null
+        draw(0)
+        els.status.textContent = 'Не удалось загрузить фоновое изображение из черновика'
+      }
       im.src = p.bgImageSrc
     } else {
+      bgImageLoadToken++
       bgImage = null
       bgImageSrc = null
     }
@@ -1089,13 +1102,19 @@ els.canvas.addEventListener('keydown', (e) => {
 // ===== Модальные окна и доступность =====
 let lastFocusedBeforeModal = null
 
+function getFocusableInModal(modal) {
+  return [...modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter(
+    (el) => !el.disabled && el.offsetParent !== null
+  )
+}
+
 function openModal(id) {
   const modal = document.getElementById(id)
   if (!modal) return
   lastFocusedBeforeModal = document.activeElement
   modal.style.display = 'grid'
-  const focusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
-  if (focusable) focusable.focus()
+  const focusable = getFocusableInModal(modal)
+  if (focusable[0]) focusable[0].focus()
 }
 
 function closeModal(id) {
@@ -1108,11 +1127,35 @@ function closeModal(id) {
 }
 
 window.addEventListener('keydown', (e) => {
+  const openModalEl = ['modalHelp', 'modalTemplates']
+    .map((id) => document.getElementById(id))
+    .find((m) => m && m.style.display !== 'none')
+
   if (e.key === 'Escape') {
-    ;['modalHelp', 'modalTemplates'].forEach((id) => {
-      const m = document.getElementById(id)
-      if (m && m.style.display !== 'none') closeModal(id)
-    })
+    if (openModalEl) closeModal(openModalEl.id)
+    return
+  }
+
+  if (e.key === 'Tab' && openModalEl) {
+    const focusable = getFocusableInModal(openModalEl)
+    if (focusable.length === 0) {
+      e.preventDefault()
+      return
+    }
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey) {
+      if (document.activeElement === first || !openModalEl.contains(document.activeElement)) {
+        e.preventDefault()
+        last.focus()
+      }
+    } else if (document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    } else if (!openModalEl.contains(document.activeElement)) {
+      e.preventDefault()
+      first.focus()
+    }
   }
 })
 
@@ -1131,7 +1174,11 @@ async function generateVideo() {
 
   isRecording = true
   els.btnGenerate.disabled = true
-  els.btnGenerate.innerHTML = '<span class="btn-icon" aria-hidden="true"></span> Запись...'
+  els.btnGenerate.replaceChildren()
+  const recIcon = document.createElement('span')
+  recIcon.className = 'btn-icon'
+  recIcon.setAttribute('aria-hidden', 'true')
+  els.btnGenerate.append(recIcon, ' Запись...')
   els.status.textContent = 'Подготовка записи...'
   els.resultCard.style.display = 'none'
 
@@ -1169,7 +1216,12 @@ async function generateVideo() {
   } finally {
     isRecording = false
     els.btnGenerate.disabled = false
-    els.btnGenerate.innerHTML = '<span class="btn-icon" aria-hidden="true">●</span> Сгенерировать видео'
+    els.btnGenerate.replaceChildren()
+    const genIcon = document.createElement('span')
+    genIcon.className = 'btn-icon'
+    genIcon.setAttribute('aria-hidden', 'true')
+    genIcon.textContent = '●'
+    els.btnGenerate.append(genIcon, ' Сгенерировать видео')
     els.timelineProgress.style.width = '0%'
     draw(0)
   }
@@ -1526,6 +1578,19 @@ document.getElementById('btnAgain').onclick = () => {
   els.resultCard.style.display = 'none'
   els.status.textContent = ''
 }
+
+function downloadPngFrame() {
+  draw(0, { showSelection: false })
+  const a = document.createElement('a')
+  a.href = els.canvas.toDataURL('image/png')
+  a.download = safeFilename(els.title.value || 'frame', format, 'png')
+  a.click()
+  draw(0)
+  els.status.textContent = 'PNG-кадр скачан ✓'
+}
+
+document.getElementById('btnDownloadPng')?.addEventListener('click', downloadPngFrame)
+document.getElementById('btnDownloadPngToolbar')?.addEventListener('click', downloadPngFrame)
 
 document.getElementById('btnHelp').onclick = () => openModal('modalHelp')
 

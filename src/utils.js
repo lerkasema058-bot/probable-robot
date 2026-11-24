@@ -7,8 +7,11 @@ export function clamp(val, min, max) {
   return Math.max(min, Math.min(max, val))
 }
 
-export function isSafeImageDataUrl(value) {
+export const MAX_IMAGE_DATA_URL_LENGTH = 2_500_000
+
+export function isSafeImageDataUrl(value, maxLength = MAX_IMAGE_DATA_URL_LENGTH) {
   if (typeof value !== 'string') return false
+  if (value.length > maxLength) return false
   return /^data:image\/(png|jpeg|jpg|webp|gif);base64,[a-zA-Z0-9+/=\s]+$/.test(value)
 }
 
