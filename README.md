@@ -91,12 +91,35 @@ npm run preview
 
 ---
 
+## Инструменты для видео (CLI)
+
+В репозитории есть helper-скрипт для конвертации/скачивания производных видеофайлов через `ffmpeg`:
+
+```bash
+# WebM/MOV -> MP4
+scripts/video-tools.sh mp4 input.webm output.mp4
+
+# Видео -> GIF
+scripts/video-tools.sh gif input.mp4 output.gif
+
+# Извлечь аудио
+scripts/video-tools.sh audio input.mp4 output.mp3
+
+# Изменить размер
+scripts/video-tools.sh resize input.mp4 1280 720 output.mp4
+
+# Сжать
+scripts/video-tools.sh compress input.mp4 output.mp4
+```
+
+> Если `ffmpeg` не установлен в системе, скрипт попробует использовать бинарь из `imageio-ffmpeg` (`pip install imageio-ffmpeg --break-system-packages`).
+
 ## Известные ограничения
 
 - **Запись видео** зависит от `MediaRecorder` и `canvas.captureStream`: в Chrome/Edge/Firefox обычно доступен `webm`, в Safari/iOS — `mp4` (если поддерживается браузером).
 - **Черновики с фото** хранятся в `localStorage`; большие изображения автоматически сжимаются при загрузке, но при переполнении хранилища нужно экспортировать проект в `.json`.
 - **Офлайн/PWA**: после первой загрузки приложение кэширует shell и запрошенные ресурсы; для полностью воспроизводимого офлайна после новой сборки лучше обновить Service Worker/кэш.
-- **CLI-конвертация (ffmpeg)** в этом sandbox не установлена по умолчанию; для конвертации форматов вне браузера используйте локально установленный `ffmpeg`.
+- **CLI-конвертация (ffmpeg)**: в окружении можно использовать `ffmpeg` (в этом sandbox он доступен через `imageio-ffmpeg`); для локальной машины установите `ffmpeg` отдельно.
 
 ## Лицензия
 
