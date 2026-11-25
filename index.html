@@ -25,6 +25,7 @@
           <span class="badge badge-kids">для детей</span>
         </div>
         <div class="header-actions">
+          <button type="button" class="btn-ghost" id="btnAgent">🤖 Агент</button>
           <button type="button" class="btn-ghost" id="btnHelp">Как монтировать?</button>
           <button type="button" class="btn-ghost" id="btnExamples">Шаблоны</button>
         </div>
@@ -37,6 +38,7 @@
         <div class="controls-tabs" role="tablist" aria-label="Режимы студии">
           <button type="button" class="tab-btn active" role="tab" data-tab="gen">Текст</button>
           <button type="button" class="tab-btn" role="tab" data-tab="kids">🎈 Дети</button>
+          <button type="button" class="tab-btn" role="tab" data-tab="agent">🤖 Агент</button>
           <button type="button" class="tab-btn" role="tab" data-tab="model">Модель <span class="tab-badge" id="modelBadge">Классика</span></button>
         </div>
 
@@ -262,6 +264,89 @@
           </div>
         </div>
 
+        <!-- Вкладка ИИ-агент -->
+        <div class="controls-scroll" id="tabAgent" style="display:none">
+          <div class="agent-hero">
+            <div class="agent-hero-icon" aria-hidden="true">🤖</div>
+            <div>
+              <h3>Агент-режиссёр</h3>
+              <p>Опиши видео словами — соберу сцену, текст, музыку и эффекты</p>
+            </div>
+          </div>
+
+          <div class="control-section agent-chat-section">
+            <div class="agent-status">
+              <span class="agent-dot" id="agentDot" data-state="idle" aria-hidden="true"></span>
+              <span id="agentStatusText">Готов к работе</span>
+            </div>
+            <div class="agent-log" id="agentLog" role="log" aria-live="polite"></div>
+            <div class="agent-chips" id="agentChips"></div>
+            <form class="agent-form" id="agentForm">
+              <label for="agentInput" class="sr-only">Описание видео для агента</label>
+              <textarea id="agentInput" rows="3" placeholder="Например: видео на день рождения для Саши, космос, 9:16, 8 секунд, весёлая музыка"></textarea>
+              <div class="agent-form-row">
+                <button type="submit" class="btn-small" id="agentSend">🤖 Собрать сцену</button>
+                <button type="button" class="btn-ghost" id="agentClearChat">🧹 Очистить</button>
+              </div>
+            </form>
+            <label class="agent-toggle" for="agentAutoApply">
+              <input type="checkbox" id="agentAutoApply" checked>
+              Применять сразу, без подтверждения
+            </label>
+          </div>
+
+          <div class="control-section">
+            <h3>🧠 Мозг агента</h3>
+            <label class="sr-only" for="agentBrain">Мозг агента</label>
+            <select id="agentBrain">
+              <option value="local">Локальный — офлайн, без ключей</option>
+              <option value="openai">OpenAI-совместимый API</option>
+            </select>
+            <div id="agentRemoteSettings" style="display:none">
+              <label for="agentBaseUrl">Base URL</label>
+              <input type="url" id="agentBaseUrl" placeholder="https://api.openai.com/v1" autocomplete="off">
+              <label for="agentKey">API-ключ</label>
+              <input type="password" id="agentKey" placeholder="sk-..." autocomplete="off">
+              <div class="hint">Ключ лежит только в localStorage этого браузера и уходит напрямую в указанный endpoint.</div>
+              <div class="hint">Можно оставить Base URL пустым — подставится <code>https://api.openai.com/v1</code>.</div>
+              <details class="agent-help">
+                <summary>Модели (обычно менять не нужно)</summary>
+                <label for="agentModel">Модель текста</label>
+                <input type="text" id="agentModel" placeholder="gpt-4o-mini" autocomplete="off">
+                <label for="agentImageModel">Модель картинок</label>
+                <input type="text" id="agentImageModel" placeholder="gpt-image-1" autocomplete="off">
+                <div class="hint"><code>gpt-4o-mini</code> — текст и инструменты. Картинки генерирует <code>gpt-image-1</code> (или <code>dall-e-3</code>).</div>
+              </details>
+              <div class="hint">Генерация фонов и героев идёт в <code>/images/generations</code> — этот метод есть не у всех провайдеров.</div>
+              <div class="hint">Endpoint должен разрешать запросы из браузера (CORS).</div>
+              <details class="agent-help">
+                <summary>Где взять ключ и что вписать?</summary>
+                <ul>
+                  <li><b>OpenAI:</b> Base URL <code>https://api.openai.com/v1</code>, модель <code>gpt-4o-mini</code>, модель картинок <code>gpt-image-1</code>. Ключ — на <code>platform.openai.com/api-keys</code>.</li>
+                  <li><b>LocalAI или свой шлюз:</b> Base URL вроде <code>http://localhost:8080/v1</code>, ключ любой, модели — какие развёрнуты.</li>
+                  <li><b>Прокси (one-api / new-api):</b> Base URL вашего шлюза, ключ выдаёт сам шлюз.</li>
+                </ul>
+                <div class="hint">Если метода картинок у провайдера нет — генерация фонов вернёт ошибку, остальной агент продолжит работать.</div>
+              </details>
+              <button type="button" class="btn-small" style="width:100%" id="agentTestBrain">🔌 Проверить соединение</button>
+            </div>
+            <div class="hint" id="agentBrainHint">Локальный мозг понимает русские команды и работает без интернета.</div>
+          </div>
+
+          <div class="control-section">
+            <h3>🛠 Что агент умеет</h3>
+            <ul class="agent-tools-list">
+              <li>Ставить фон, модель и стиль сцены</li>
+              <li><b>Генерировать фон и героев нейросетью</b> по описанию</li>
+              <li>Писать заголовок и подзаголовок</li>
+              <li>Добавлять героев и стикеры из каталога</li>
+              <li><b>Просить загрузить свои фото</b> (ребёнок, питомец)</li>
+              <li>Выбирать формат, длительность, музыку и эффекты</li>
+              <li>Запускать запись готового видео</li>
+            </ul>
+          </div>
+        </div>
+
         <!-- Вкладка Модель -->
         <div class="controls-scroll" id="tabModel" style="display:none">
           <div class="model-header">
@@ -345,11 +430,12 @@
       <p><b>Мультяшные</b> — яркие фоны (небо, лес, замок, космос) + милые герои (мишка, лиса, единорог) + конфетти.</p>
       <p><b>Реалистичные</b> — природа и животные как в жизни (саванна, лес, океан) — для познавательных видео.</p>
       <ul>
-        <li><b>1.</b> Вкладка <b>🎈 Дети</b> → выбери стиль (мультяшный/реалистичный)</li>
-        <li><b>2.</b> Выбери фон сцены → клик по герою добавит его на сцену</li>
-        <li><b>3.</b> На сцене перетаскивай мышкой, крути колесом для размера или двигай стрелками</li>
-        <li><b>4.</b> Введи текст в «Текст», выбери формат 9:16 для телефона</li>
-        <li><b>5.</b> Нажми <b>Сгенерировать видео</b> → скачай ролик</li>
+        <li><b>1.</b> Вкладка <b>🤖 Агент</b> → опиши ролик словами: «видео на день рождения для Саши, космос, 9:16, 8 секунд, весёлая музыка» — сцена соберётся сама</li>
+        <li><b>2.</b> Или вручную: вкладка <b>🎈 Дети</b> → выбери стиль (мультяшный/реалистичный)</li>
+        <li><b>3.</b> Выбери фон сцены → клик по герою добавит его на сцену</li>
+        <li><b>4.</b> На сцене перетаскивай мышкой, крути колесом для размера или двигай стрелками</li>
+        <li><b>5.</b> Введи текст в «Текст», выбери формат 9:16 для телефона</li>
+        <li><b>6.</b> Нажми <b>Сгенерировать видео</b> → скачай ролик</li>
       </ul>
       <p>Все герои рисуются на <code>Canvas</code> и попадают в видео вместе с музыкой и рисунком кистью.</p>
       <button type="button" class="btn-primary" data-close="modalHelp">Понятно, погнали!</button>

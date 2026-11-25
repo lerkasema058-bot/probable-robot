@@ -19,6 +19,12 @@ export const STORAGE_KEYS = {
   drawSize: 'pr-draw-size',
   draft: 'pr-draft',
   draftTime: 'pr-draft-time',
+  agentBrain: 'pr-agent-brain',
+  agentBaseUrl: 'pr-agent-base-url',
+  agentModel: 'pr-agent-model',
+  agentKey: 'pr-agent-key',
+  agentImageModel: 'pr-agent-image-model',
+  agentAutoApply: 'pr-agent-auto-apply',
 }
 
 export function safeGetItem(key, fallback = null, storage = globalThis.localStorage) {
