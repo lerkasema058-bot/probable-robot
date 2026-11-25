@@ -1572,7 +1572,7 @@ document.getElementById('btnHelp').onclick = () => openModal('modalHelp')
 document.getElementById('btnAgent')?.addEventListener('click', () => {
   document.body.dataset.tab = 'agent'
   syncTabs()
-  document.querySelector('.controls')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  document.querySelector('.controls')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
 })
 
 // На широких экранах скроллим к правой панели, на планшетах/телефонах открываем модальное окно
