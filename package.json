@@ -16,7 +16,7 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "@eslint/js": "^10.15.0",
+    "@eslint/js": "^10.0.1",
     "eslint": "^10.15.0",
     "globals": "^16.0.0",
     "jsdom": "^26.0.0",

@@ -229,3 +229,15 @@ export async function downscaleImageFile(file, maxEdge = 512, quality = 0.82) {
     URL.revokeObjectURL(bitmapUrl)
   }
 }
+
+export function dataUrlToBlob(dataUrl) {
+  if (!isSafeImageDataUrl(dataUrl)) throw new Error('Некорректный data URL изображения')
+  const [meta, base64] = String(dataUrl).split(',')
+  const mime = /data:([^;]+);base64/i.exec(meta)?.[1] || 'image/png'
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return new Blob([bytes], { type: mime })
+}

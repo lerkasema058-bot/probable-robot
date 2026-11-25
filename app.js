@@ -1,4 +1,8 @@
 import { previewMusic, stopPreviewMusic } from './src/audio.js'
+import { createAgent } from './src/agent/agent.js'
+import { chatRemote, DEFAULT_BASE_URL, DEFAULT_MODEL } from './src/agent/brain.js'
+import { DEFAULT_IMAGE_MODEL, generateImage } from './src/agent/images.js'
+import { describeToolCall } from './src/agent/tools.js'
 import {
   cartoonChars,
   formats,
@@ -23,6 +27,7 @@ import {
 } from './src/storage.js'
 import {
   clamp,
+  dataUrlToBlob,
   downscaleImageFile,
   isSafeImageDataUrl,
   normalizeCharacter,
@@ -71,6 +76,23 @@ const els = {
   inpMusic: document.getElementById('inpMusic'),
   inpPhoto: document.getElementById('inpPhoto'),
   activeKidsBgBanner: document.getElementById('activeKidsBgBanner'),
+  agentLog: document.getElementById('agentLog'),
+  agentInput: document.getElementById('agentInput'),
+  agentForm: document.getElementById('agentForm'),
+  agentSend: document.getElementById('agentSend'),
+  agentClearChat: document.getElementById('agentClearChat'),
+  agentStatus: document.getElementById('agentStatusText'),
+  agentDot: document.getElementById('agentDot'),
+  agentChips: document.getElementById('agentChips'),
+  agentBrain: document.getElementById('agentBrain'),
+  agentRemoteSettings: document.getElementById('agentRemoteSettings'),
+  agentBaseUrl: document.getElementById('agentBaseUrl'),
+  agentModel: document.getElementById('agentModel'),
+  agentKey: document.getElementById('agentKey'),
+  agentImageModel: document.getElementById('agentImageModel'),
+  agentAutoApply: document.getElementById('agentAutoApply'),
+  agentTestBrain: document.getElementById('agentTestBrain'),
+  agentBrainHint: document.getElementById('agentBrainHint'),
 }
 
 const ctx = els.canvas.getContext('2d')
@@ -293,6 +315,9 @@ async function addPhotoChar(file) {
     renderKidsSelected()
     draw(0)
     els.status.textContent = 'Фото добавлено ✓ Перетаскивай на сцене!'
+    if (document.body.dataset.tab === 'agent') {
+      agentAddMessage('tool', `📸 Фото добавлено на сцену: ${ch.name}`)
+    }
   } catch (err) {
     els.status.textContent = `Ошибка загрузки фото: ${err.message}`
   }
@@ -378,6 +403,22 @@ function clearKidsBgIfActive() {
   }
 }
 
+function applyTemplateCard(t) {
+  els.title.value = t.title
+  els.subtitle.value = t.subtitle || ''
+  els.bgType.value = t.bg
+  if (t.bgColor) els.bgColor.value = t.bgColor
+  if (t.anim) els.anim.value = t.anim
+  if (t.color) els.textColor.value = t.color
+  activeKidsBgId = null
+  safeRemoveItem(STORAGE_KEYS.kidsBg)
+  updateBgVisibility()
+  saveKids()
+  renderKids()
+  draw(0)
+  els.status.textContent = `Шаблон «${t.name}» применён ✓`
+}
+
 function buildTemplateCard(t, onAfterApply) {
   const btn = document.createElement('button')
   btn.type = 'button'
@@ -399,22 +440,45 @@ function buildTemplateCard(t, onAfterApply) {
   btn.append(thumb, name)
 
   btn.onclick = () => {
-    els.title.value = t.title
-    els.subtitle.value = t.subtitle || ''
-    els.bgType.value = t.bg
-    if (t.bgColor) els.bgColor.value = t.bgColor
-    if (t.anim) els.anim.value = t.anim
-    if (t.color) els.textColor.value = t.color
-    activeKidsBgId = null
-    safeRemoveItem(STORAGE_KEYS.kidsBg)
-    updateBgVisibility()
-    saveKids()
-    renderKids()
-    draw(0)
-    els.status.textContent = `Шаблон «${t.name}» применён ✓`
+    applyTemplateCard(t)
     if (onAfterApply) onAfterApply()
   }
   return btn
+}
+
+function applyKidsTemplate(t, { switchTab = false } = {}) {
+  kidsStyle = t.style
+  activeKidsBgId = t.bg
+  els.title.value = t.title
+  els.subtitle.value = t.subtitle
+  const dims = formats[format]
+  const minDim = Math.min(dims.w, dims.h)
+  const baseSize = dims.w > 900 ? 110 : 80
+  characters = t.chars.map((emoji, i) =>
+    normalizeCharacter(
+      {
+        id: `${Date.now()}_${i}`,
+        emoji,
+        name: emoji,
+        nx: 0.25 + i * 0.22,
+        ny: 0.62 + (i % 2 ? -0.04 : 0.02),
+        nSize: baseSize / minDim,
+        rot: 0,
+      },
+      dims
+    )
+  )
+  selectedCharId = null
+  updateBgVisibility()
+  saveKids()
+  renderPhotoThumbs()
+  renderKids()
+  draw(0)
+  if (switchTab) {
+    document.body.dataset.tab = 'kids'
+    syncTabs()
+  }
+  els.status.textContent = `История «${t.name}» загружена — нажимай Сгенерировать!`
 }
 
 function buildKidsTemplateBtn(t, onAfterApply) {
@@ -437,36 +501,7 @@ function buildKidsTemplateBtn(t, onAfterApply) {
   btn.append(iconBox, textWrap)
 
   btn.onclick = () => {
-    kidsStyle = t.style
-    activeKidsBgId = t.bg
-    els.title.value = t.title
-    els.subtitle.value = t.subtitle
-    const dims = formats[format]
-    const minDim = Math.min(dims.w, dims.h)
-    const baseSize = dims.w > 900 ? 110 : 80
-    characters = t.chars.map((emoji, i) =>
-      normalizeCharacter(
-        {
-          id: `${Date.now()}_${i}`,
-          emoji,
-          name: emoji,
-          nx: 0.25 + i * 0.22,
-          ny: 0.62 + (i % 2 ? -0.04 : 0.02),
-          nSize: baseSize / minDim,
-          rot: 0,
-        },
-        dims
-      )
-    )
-    selectedCharId = null
-    updateBgVisibility()
-    saveKids()
-    renderPhotoThumbs()
-    renderKids()
-    draw(0)
-    document.body.dataset.tab = 'kids'
-    syncTabs()
-    els.status.textContent = `История «${t.name}» загружена — нажимай Сгенерировать!`
+    applyKidsTemplate(t, { switchTab: true })
     if (onAfterApply) onAfterApply()
   }
   return btn
@@ -1317,11 +1352,11 @@ document.getElementById('btnStopMusic')?.addEventListener('click', () => {
 els.inpMusic?.addEventListener('change', () => scheduleAutosave())
 els.btnPlayPreview.onclick = playPreview
 
-document.getElementById('btnSpeak').onclick = () => {
+function speakText() {
   const text = `${els.title.value}. ${els.subtitle.value}`.trim()
   if (!('speechSynthesis' in window)) {
     els.status.textContent = 'Браузер не поддерживает озвучку'
-    return
+    return false
   }
   window.speechSynthesis.cancel()
   const u = new SpeechSynthesisUtterance(text)
@@ -1333,6 +1368,11 @@ document.getElementById('btnSpeak').onclick = () => {
   u.onend = () => {
     els.status.textContent = 'Готово!'
   }
+  return true
+}
+
+document.getElementById('btnSpeak').onclick = () => {
+  speakText()
 }
 
 document.querySelectorAll('.style-btn').forEach((b) => {
@@ -1529,6 +1569,12 @@ document.getElementById('btnAgain').onclick = () => {
 
 document.getElementById('btnHelp').onclick = () => openModal('modalHelp')
 
+document.getElementById('btnAgent')?.addEventListener('click', () => {
+  document.body.dataset.tab = 'agent'
+  syncTabs()
+  document.querySelector('.controls')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+})
+
 // На широких экранах скроллим к правой панели, на планшетах/телефонах открываем модальное окно
 document.getElementById('btnExamples').onclick = () => {
   const panel = document.getElementById('templatesPanel')
@@ -1555,6 +1601,7 @@ function syncTabs() {
   })
   document.getElementById('tabGen').style.display = activeTab === 'gen' ? 'block' : 'none'
   document.getElementById('tabKids').style.display = activeTab === 'kids' ? 'block' : 'none'
+  document.getElementById('tabAgent').style.display = activeTab === 'agent' ? 'block' : 'none'
   document.getElementById('tabModel').style.display = activeTab === 'model' ? 'block' : 'none'
 }
 
@@ -1565,6 +1612,455 @@ document.querySelectorAll('.tab-btn').forEach((b) => {
     syncTabs()
   })
 })
+
+// ===== ИИ-агент =====
+const AGENT_PROMPTS = [
+  'Видео на день рождения для Саши, 9:16, 8 секунд, весёлая музыка',
+  'Мультяшный ролик про котика и лисичку в лесу, 5 секунд',
+  'Космос с единорогом и ракетой, неон, 6 секунд, без музыки',
+  'Скидка 30% на корм для котов, неон, 9:16, 5 секунд, энергичная музыка',
+]
+
+let agentInstance = null
+let agentBusy = false
+
+function getAgentConfig() {
+  return {
+    brain: els.agentBrain?.value === 'openai' ? 'openai' : 'local',
+    baseUrl: els.agentBaseUrl?.value.trim() || DEFAULT_BASE_URL,
+    model: els.agentModel?.value.trim() || DEFAULT_MODEL,
+    apiKey: els.agentKey?.value.trim() || '',
+    imageModel: els.agentImageModel?.value.trim() || DEFAULT_IMAGE_MODEL,
+  }
+}
+
+/** Адаптер даёт агенту доступ к функциям студии, не раскрывая внутренности UI. */
+function createStudioAdapter() {
+  return {
+    getContext() {
+      return {
+        title: els.title.value || '',
+        subtitle: els.subtitle.value || '',
+        format,
+        modelId: currentModelId,
+        kidsStyle,
+        backgroundId: activeKidsBgId,
+        characters: characters.filter((c) => !c.isPhoto).map((c) => c.emoji),
+        duration: Number(els.duration.value) || 4,
+        music: els.inpMusic?.value || 'none',
+      }
+    },
+    setText(title, subtitle) {
+      els.title.value = title
+      els.subtitle.value = subtitle
+      scheduleAutosave()
+      draw(0)
+    },
+    setKidsBackground(id) {
+      activeKidsBgId = id
+      updateBgVisibility()
+      saveKids()
+      renderKids()
+      draw(0)
+    },
+    setGradientBackground(id) {
+      els.bgType.value = id
+      clearKidsBgIfActive()
+      updateBgVisibility()
+      saveKids()
+      scheduleAutosave()
+      draw(0)
+    },
+    setSolidBackground(color) {
+      els.bgType.value = 'solid'
+      els.bgColor.value = color
+      clearKidsBgIfActive()
+      updateBgVisibility()
+      saveKids()
+      scheduleAutosave()
+      draw(0)
+    },
+    setModel(id) {
+      setModel(id)
+    },
+    setKidsStyle(style) {
+      kidsStyle = style
+      saveKids()
+      renderKids()
+      draw(0)
+    },
+    addCharacter(emoji, name, isSticker) {
+      addChar(emoji, name, isSticker)
+    },
+    clearCharacters() {
+      characters = []
+      selectedCharId = null
+      saveKids()
+      renderPhotoThumbs()
+      renderKids()
+      draw(0)
+    },
+    setFormat(fmt) {
+      applyFormat(fmt)
+    },
+    setAnimation(anim) {
+      els.anim.value = anim
+      scheduleAutosave()
+      draw(0)
+    },
+    setDuration(seconds) {
+      els.duration.value = String(seconds)
+      els.valDuration.textContent = String(seconds)
+      els.timelineEnd.textContent = `${seconds}с`
+      scheduleAutosave()
+      draw(0)
+    },
+    setMusic(track) {
+      if (els.inpMusic) els.inpMusic.value = track
+      scheduleAutosave()
+    },
+    setEffects(patch) {
+      const inputs = {
+        particles: els.particles,
+        kenBurns: els.kenBurns,
+        watermark: els.watermark,
+        confetti: els.confetti,
+        bubbles: els.bubbles,
+        speech: els.speech,
+      }
+      for (const [key, input] of Object.entries(inputs)) {
+        if (input && patch[key] !== undefined) input.checked = Boolean(patch[key])
+      }
+      scheduleAutosave()
+      draw(0)
+    },
+    async generateBackground(prompt) {
+      const { dataUrl } = await generateImage({ prompt, config: getAgentConfig(), format })
+      const { dataUrl: scaled, img } = await downscaleImageFile(dataUrlToBlob(dataUrl), 1440, 0.86)
+      bgImage = img
+      bgImageSrc = scaled
+      els.bgType.value = 'image'
+      clearKidsBgIfActive()
+      updateBgVisibility()
+      saveKids()
+      scheduleAutosave()
+      draw(0)
+      els.status.textContent = 'Фон сгенерирован ✓'
+    },
+    async generateCharacter(prompt, name) {
+      const { dataUrl } = await generateImage({ prompt, config: getAgentConfig(), format: '1:1' })
+      const { dataUrl: scaled, img } = await downscaleImageFile(dataUrlToBlob(dataUrl), 480, 0.82)
+      const dims = formats[format]
+      const minDim = Math.min(dims.w, dims.h)
+      const baseSize = dims.w > 900 ? 140 : 110
+      const ch = normalizeCharacter(
+        {
+          id: `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          name: sanitizeText(name, 32, 'Герой'),
+          emoji: '🖼️',
+          nx: 0.5,
+          ny: 0.5,
+          nSize: clamp(baseSize / minDim, 0.05, 0.4),
+          rot: 0,
+          isPhoto: true,
+          imgSrc: scaled,
+        },
+        dims
+      )
+      ch._img = img
+      characters.push(ch)
+      selectedCharId = ch.id
+      saveKids()
+      renderPhotoThumbs()
+      renderKids()
+      draw(0)
+      els.status.textContent = 'Герой сгенерирован ✓'
+      return ch
+    },
+    requestPhotos() {
+      return Boolean(document.getElementById('inpPhoto'))
+    },
+    applyKidsTemplate(template) {
+      applyKidsTemplate(template)
+    },
+    applyTemplate(template) {
+      applyTemplateCard(template)
+    },
+    speak() {
+      return speakText()
+    },
+    exportVideo() {
+      return generateVideo()
+    },
+  }
+}
+
+function agentSetStatus(state, text) {
+  if (els.agentDot) els.agentDot.dataset.state = state
+  if (els.agentStatus) els.agentStatus.textContent = text
+}
+
+function agentScrollLog() {
+  if (els.agentLog) els.agentLog.scrollTop = els.agentLog.scrollHeight
+}
+
+function agentAddMessage(kind, text) {
+  if (!els.agentLog) return null
+  const row = document.createElement('div')
+  row.className = `agent-msg agent-msg--${kind}`
+  const bubble = document.createElement('div')
+  bubble.className = 'agent-bubble'
+  bubble.textContent = text
+  row.appendChild(bubble)
+  els.agentLog.appendChild(row)
+  agentScrollLog()
+  return row
+}
+
+function agentAddPlan(plan, { autoApply = false } = {}) {
+  if (!els.agentLog) return
+  const row = document.createElement('div')
+  row.className = 'agent-msg agent-msg--plan'
+  const card = document.createElement('div')
+  card.className = 'agent-plan'
+
+  const head = document.createElement('div')
+  head.className = 'agent-plan-head'
+  head.textContent = plan.reply || 'План готов'
+  card.appendChild(head)
+
+  const list = document.createElement('ol')
+  list.className = 'agent-plan-list'
+  plan.calls.forEach((call) => {
+    const li = document.createElement('li')
+    li.textContent = describeToolCall(call)
+    list.appendChild(li)
+  })
+  card.appendChild(list)
+
+  if (!autoApply) {
+    const actions = document.createElement('div')
+    actions.className = 'agent-plan-actions'
+    const applyBtn = document.createElement('button')
+    applyBtn.type = 'button'
+    applyBtn.className = 'btn-small'
+    applyBtn.textContent = '✅ Применить'
+    const cancelBtn = document.createElement('button')
+    cancelBtn.type = 'button'
+    cancelBtn.className = 'btn-ghost'
+    cancelBtn.textContent = '✕ Отмена'
+    actions.append(applyBtn, cancelBtn)
+    card.appendChild(actions)
+
+    applyBtn.onclick = async () => {
+      applyBtn.disabled = true
+      cancelBtn.disabled = true
+      card.classList.add('is-applied')
+      await agentApplyPlan(plan)
+      actions.remove()
+    }
+    cancelBtn.onclick = () => {
+      card.classList.add('is-cancelled')
+      const note = document.createElement('div')
+      note.className = 'agent-plan-note'
+      note.textContent = 'Отменено — сцена не менялась'
+      card.appendChild(note)
+      actions.remove()
+    }
+  } else {
+    card.classList.add('is-applied')
+  }
+
+  row.appendChild(card)
+  els.agentLog.appendChild(row)
+  agentScrollLog()
+}
+
+function agentAddPhotoRequest() {
+  if (!els.agentLog) return
+  const row = document.createElement('div')
+  row.className = 'agent-msg agent-msg--photo'
+  const card = document.createElement('div')
+  card.className = 'agent-photo-request'
+
+  const title = document.createElement('div')
+  title.className = 'agent-photo-title'
+  title.textContent = '📸 Добавь своё фото на сцену'
+
+  const hint = document.createElement('div')
+  hint.className = 'agent-photo-hint'
+  hint.textContent =
+    'Ребёнок, питомец или вся семья — фото сожмётся и станет круглым героем. Можно перетащить файлы прямо на превью.'
+
+  const btn = document.createElement('button')
+  btn.type = 'button'
+  btn.className = 'btn-small'
+  btn.textContent = '📸 Выбрать фото'
+  btn.onclick = () => {
+    const input = document.getElementById('inpPhoto')
+    if (input) input.click()
+    else agentAddMessage('error', 'Не удалось открыть выбор файлов')
+  }
+
+  card.append(title, hint, btn)
+  row.appendChild(card)
+  els.agentLog.appendChild(row)
+  agentScrollLog()
+}
+
+async function agentApplyPlan(plan) {
+  if (!agentInstance) return
+  const needsImage = (plan.calls || []).some((call) => String(call?.name).startsWith('generate_'))
+  agentSetStatus('working', needsImage ? 'Генерирую картинку нейросетью…' : 'Применяю план...')
+  try {
+    const { results, reply } = await agentInstance.apply(plan)
+    results.forEach((result) => {
+      agentAddMessage(result.ok ? 'tool' : 'error', `${result.ok ? '✅' : '⚠️'} ${result.message}`)
+    })
+    const allOk = results.length > 0 && results.every((r) => r.ok)
+    if (results.some((r) => r.tool === 'request_photos' && r.ok)) {
+      agentAddPhotoRequest()
+    }
+    if (plan.source === 'openai' || !results.length) {
+      agentAddMessage('bot', reply)
+    } else {
+      agentAddMessage(
+        'bot',
+        allOk
+          ? 'Сцена собрана ✓ Проверь превью и жми «Сгенерировать видео».'
+          : 'Часть шагов не удалась — посмотри сообщения выше.'
+      )
+    }
+    agentSetStatus('idle', allOk ? 'Готово' : 'Есть ошибки')
+  } catch (err) {
+    agentAddMessage('error', `Не получилось: ${err.message}`)
+    agentSetStatus('error', 'Ошибка')
+  }
+}
+
+function initAgent() {
+  if (!els.agentForm || !els.agentLog) return
+
+  const savedBrain = safeGetItem(STORAGE_KEYS.agentBrain, 'local')
+  if (els.agentBrain) els.agentBrain.value = savedBrain === 'openai' ? 'openai' : 'local'
+  if (els.agentBaseUrl) els.agentBaseUrl.value = safeGetItem(STORAGE_KEYS.agentBaseUrl, '')
+  if (els.agentModel) els.agentModel.value = safeGetItem(STORAGE_KEYS.agentModel, '')
+  if (els.agentKey) els.agentKey.value = safeGetItem(STORAGE_KEYS.agentKey, '')
+  if (els.agentImageModel) {
+    els.agentImageModel.value = safeGetItem(STORAGE_KEYS.agentImageModel, '') || DEFAULT_IMAGE_MODEL
+  }
+  if (els.agentAutoApply) {
+    els.agentAutoApply.checked = safeGetItem(STORAGE_KEYS.agentAutoApply, 'true') !== 'false'
+  }
+
+  const syncBrainUi = () => {
+    const remote = els.agentBrain?.value === 'openai'
+    if (els.agentRemoteSettings) els.agentRemoteSettings.style.display = remote ? 'flex' : 'none'
+    if (els.agentBrainHint) {
+      els.agentBrainHint.textContent = remote
+        ? 'Модель сама решит, какие инструменты вызвать, и объяснит результат.'
+        : 'Локальный мозг понимает русские команды и работает без интернета.'
+    }
+  }
+  syncBrainUi()
+
+  els.agentBrain?.addEventListener('change', () => {
+    safeSetItem(STORAGE_KEYS.agentBrain, els.agentBrain.value)
+    syncBrainUi()
+  })
+  els.agentBaseUrl?.addEventListener('change', () =>
+    safeSetItem(STORAGE_KEYS.agentBaseUrl, els.agentBaseUrl.value.trim())
+  )
+  els.agentModel?.addEventListener('change', () =>
+    safeSetItem(STORAGE_KEYS.agentModel, els.agentModel.value.trim())
+  )
+  els.agentKey?.addEventListener('change', () =>
+    safeSetItem(STORAGE_KEYS.agentKey, els.agentKey.value.trim())
+  )
+  els.agentImageModel?.addEventListener('change', () =>
+    safeSetItem(STORAGE_KEYS.agentImageModel, els.agentImageModel.value.trim())
+  )
+  els.agentAutoApply?.addEventListener('change', () =>
+    safeSetItem(STORAGE_KEYS.agentAutoApply, String(els.agentAutoApply.checked))
+  )
+
+  agentInstance = createAgent({ studio: createStudioAdapter(), getConfig: getAgentConfig })
+
+  if (els.agentChips) {
+    AGENT_PROMPTS.forEach((text) => {
+      const chip = document.createElement('button')
+      chip.type = 'button'
+      chip.className = 'agent-chip'
+      chip.textContent = text
+      chip.onclick = () => {
+        if (!els.agentInput) return
+        els.agentInput.value = text
+        els.agentForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
+      }
+      els.agentChips.appendChild(chip)
+    })
+  }
+
+  els.agentClearChat?.addEventListener('click', () => {
+    els.agentLog.replaceChildren()
+    agentSetStatus('idle', 'Готов к работе')
+  })
+
+  els.agentForm.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const prompt = els.agentInput?.value.trim() || ''
+    if (!prompt || agentBusy) return
+    agentBusy = true
+    if (els.agentSend) els.agentSend.disabled = true
+    els.agentInput.value = ''
+    agentAddMessage('user', prompt)
+    agentSetStatus('thinking', 'Думаю...')
+    try {
+      const plan = await agentInstance.plan(prompt)
+      if (!plan.calls.length) {
+        agentAddMessage('bot', plan.reply)
+        agentSetStatus('idle', 'Готов')
+        return
+      }
+      const autoApply = Boolean(els.agentAutoApply?.checked)
+      agentAddPlan(plan, { autoApply })
+      if (autoApply) {
+        await agentApplyPlan(plan)
+      } else {
+        agentSetStatus('idle', 'Жду подтверждения')
+      }
+    } catch (err) {
+      agentAddMessage('error', `Не получилось: ${err.message}`)
+      agentSetStatus('error', 'Ошибка')
+    } finally {
+      agentBusy = false
+      if (els.agentSend) els.agentSend.disabled = false
+    }
+  })
+
+  els.agentTestBrain?.addEventListener('click', async () => {
+    const btn = els.agentTestBrain
+    const label = btn.textContent
+    btn.disabled = true
+    btn.textContent = '🔌 Проверяю...'
+    agentSetStatus('thinking', 'Проверяю соединение...')
+    try {
+      const res = await chatRemote({
+        messages: [{ role: 'user', content: 'Ответь одним словом: ок.' }],
+        config: getAgentConfig(),
+        withTools: false,
+      })
+      agentSetStatus('idle', 'Соединение есть ✓')
+      agentAddMessage('bot', res.content ? `Модель отвечает: ${res.content}` : 'Соединение есть ✓')
+    } catch (err) {
+      agentSetStatus('error', 'Нет соединения')
+      agentAddMessage('error', `Не удалось подключиться: ${err.message}`)
+    } finally {
+      btn.disabled = false
+      btn.textContent = label
+    }
+  })
+}
 
 // Инициализация
 syncTabs()
@@ -1589,3 +2085,4 @@ applyFormat(format)
 els.valTitleSize.textContent = els.titleSize.value
 els.valSubSize.textContent = els.subSize.value
 draw(0)
+initAgent()
